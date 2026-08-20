@@ -71,7 +71,7 @@ araç/teknikle yapıldığı, hangi sonuca ulaşıldığı. "...yapılmıştır"
 **7. Supabase kurulumu ve şema tasarımı**
 - Supabase projesi aç, tabloları tasarla (etkinlikler, profiles, katilimlar, yorumlar, favoriler)
 - `@supabase/supabase-js` kur, `.env` yönetimi
-→ **SS + defter**
+→ **SS + defter** *(kod tarafı tamamlandı — Supabase projesini açman ve schema.sql'i çalıştırman gerekiyor)*
 
 **8. Kayıt akışı**
 - Kayıt formu + validasyon
