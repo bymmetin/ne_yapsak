@@ -64,7 +64,7 @@ araç/teknikle yapıldığı, hangi sonuca ulaşıldığı. "...yapılmıştır"
 - `react-native-calendars` ile aylık takvim görünümü, etkinlik günleri işaretli
 - Profil ekranı iskeleti (avatar, düzenlediğim/katıldığım etkinlik sayacı)
 - Tüm hafta boyunca yapılan ekranları gözden geçir, tutarsız stilleri düzelt, klasör yapısını temizle
-→ **SS + defter**
+→ **SS + defter** *(tamamlandı)*
 
 ## Hafta 2 — Supabase Backend Kurulumu ve Kimlik Doğrulama (Gün 7-13)
 

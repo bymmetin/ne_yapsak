@@ -1,18 +1,9 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
 
+import KategoriEtiket from './KategoriEtiket';
 import { colors, radius, spacing, typography } from '../constants/theme';
-import { Etkinlik, Kategori } from '../types';
-
-export const KATEGORI_ETIKETLERI: Record<Kategori, string> = {
-  muzik: 'Müzik',
-  spor: 'Spor',
-  sanat: 'Sanat',
-  yemek: 'Yemek',
-  egitim: 'Eğitim',
-  teknoloji: 'Teknoloji',
-  diger: 'Diğer',
-};
+import { Etkinlik } from '../types';
 
 const AYLAR = ['Oca', 'Şub', 'Mar', 'Nis', 'May', 'Haz', 'Tem', 'Ağu', 'Eyl', 'Eki', 'Kas', 'Ara'];
 
@@ -37,7 +28,7 @@ export default function EtkinlikKarti({ etkinlik, onPress }: Props) {
         </View>
       )}
       <View style={styles.icerik}>
-        <Text style={styles.kategoriEtiket}>{KATEGORI_ETIKETLERI[etkinlik.kategori]}</Text>
+        <KategoriEtiket kategori={etkinlik.kategori} />
         <Text style={styles.baslik} numberOfLines={2}>
           {etkinlik.baslik}
         </Text>
@@ -76,18 +67,6 @@ const styles = StyleSheet.create({
   },
   icerik: {
     padding: spacing.md,
-  },
-  kategoriEtiket: {
-    alignSelf: 'flex-start',
-    backgroundColor: colors.surface,
-    color: colors.primary,
-    fontSize: typography.fontSize.xs,
-    fontWeight: typography.fontWeight.medium,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: 2,
-    borderRadius: radius.full,
-    overflow: 'hidden',
-    marginBottom: spacing.xs,
   },
   baslik: {
     fontSize: typography.fontSize.lg,

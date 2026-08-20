@@ -4,7 +4,8 @@ import { useState } from 'react';
 import { Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { formatTarihSaat, KATEGORI_ETIKETLERI } from '../components/EtkinlikKarti';
+import { formatTarihSaat } from '../components/EtkinlikKarti';
+import KategoriEtiket from '../components/KategoriEtiket';
 import { colors, radius, spacing, typography } from '../constants/theme';
 import { mockEtkinlikler } from '../services/mockData';
 import type { KesfetStackParamList } from '../types/navigation';
@@ -49,7 +50,7 @@ export default function EtkinlikDetayScreen({ route }: Props) {
         )}
 
         <View style={styles.icerik}>
-          <Text style={styles.kategoriEtiket}>{KATEGORI_ETIKETLERI[etkinlik.kategori]}</Text>
+          <KategoriEtiket kategori={etkinlik.kategori} />
           <Text style={styles.baslik}>{etkinlik.baslik}</Text>
 
           <View style={styles.satir}>
@@ -125,18 +126,6 @@ const styles = StyleSheet.create({
   },
   icerik: {
     padding: spacing.md,
-  },
-  kategoriEtiket: {
-    alignSelf: 'flex-start',
-    backgroundColor: colors.surface,
-    color: colors.primary,
-    fontSize: typography.fontSize.xs,
-    fontWeight: typography.fontWeight.medium,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: 2,
-    borderRadius: radius.full,
-    overflow: 'hidden',
-    marginBottom: spacing.xs,
   },
   baslik: {
     fontSize: typography.fontSize.xxl,
