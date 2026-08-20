@@ -2,9 +2,9 @@ import { Ionicons } from '@expo/vector-icons';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 
 import { colors, typography } from '../constants/theme';
+import KesfetStack from './KesfetStack';
 import BildirimlerScreen from '../screens/BildirimlerScreen';
 import EtkinlikOlusturScreen from '../screens/EtkinlikOlusturScreen';
-import KesfetScreen from '../screens/KesfetScreen';
 import ProfilScreen from '../screens/ProfilScreen';
 import TakvimScreen from '../screens/TakvimScreen';
 import type { RouteName } from '../types/navigation';
@@ -51,7 +51,11 @@ export default function TabNavigator() {
         },
       })}
     >
-      <Tab.Screen name="Kesfet" component={KesfetScreen} options={{ title: 'Keşfet' }} />
+      <Tab.Screen
+        name="Kesfet"
+        component={KesfetStack}
+        options={{ title: 'Keşfet', headerShown: false }}
+      />
       <Tab.Screen name="Takvim" component={TakvimScreen} options={{ title: 'Takvim' }} />
       <Tab.Screen
         name="EtkinlikOlustur"

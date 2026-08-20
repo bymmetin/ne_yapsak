@@ -42,23 +42,23 @@ araç/teknikle yapıldığı, hangi sonuca ulaşıldığı. "...yapılmıştır"
 - TypeScript interface'leri: `Etkinlik`, `Kullanici`, `Katilim`, `Kategori`, `Yorum`
 - tsconfig strict mode, ESLint/Prettier kur
 - 10-15 örnek etkinliklik mock veri seti
-→ **SS + defter**
+→ **SS + defter** *(tamamlandı)*
 
 **3. Navigasyon iskeleti**
 - Bottom Tabs: Keşfet, Takvim, Etkinlik Oluştur, Bildirimler, Profil (5 sekme)
 - İkon seti, aktif/pasif tab renkleri, header stilleri
-→ **SS + defter**
+→ **SS + defter** *(tamamlandı)*
 
 **4. Keşfet ekranı — liste**
 - FlatList ile mock veriyle etkinlik listesi
 - `EtkinlikKarti` component (kapak fotoğrafı, başlık, tarih, katılımcı sayısı, kategori etiketi)
 - Pull-to-refresh davranışı
 - Boş liste / yükleniyor / hata durumları için placeholder bileşenleri (ilerideki haftalarda gerçek veriyle tekrar kullanılacak)
-→ **SS + defter**
+→ **SS + defter** *(tamamlandı)*
 
 **5. Etkinlik detay ekranı**
 - Açıklama, tarih/saat, konum, katılımcı avatarları (mock veriyle), "Katıl" butonu
-→ **SS + defter**
+→ **SS + defter** *(tamamlandı)*
 
 **6. Takvim, profil iskeleti ve hafta özeti**
 - `react-native-calendars` ile aylık takvim görünümü, etkinlik günleri işaretli

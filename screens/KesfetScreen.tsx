@@ -1,3 +1,4 @@
+import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useCallback, useEffect, useState } from 'react';
 import { FlatList, Pressable, RefreshControl, StyleSheet, Text, View } from 'react-native';
 
@@ -8,6 +9,7 @@ import YuklemeDurumu from '../components/YuklemeDurumu';
 import { colors, radius, spacing, typography } from '../constants/theme';
 import { mockEtkinlikler } from '../services/mockData';
 import { Etkinlik } from '../types';
+import type { KesfetStackParamList } from '../types/navigation';
 
 // Supabase 'select' sorgusunu taklit eder (Gün 17'de gerçek sorguyla değişecek).
 // simulateBos/simulateHata, boş liste ve hata durumlarını __DEV__ panelinden
@@ -36,7 +38,9 @@ const TEST_MODU_ETIKETLERI: Record<TestModu, string> = {
   hata: 'Hata',
 };
 
-export default function KesfetScreen() {
+type Props = NativeStackScreenProps<KesfetStackParamList, 'KesfetListesi'>;
+
+export default function KesfetScreen({ navigation }: Props) {
   const [testModu, setTestModu] = useState<TestModu>('normal');
   const [durum, setDurum] = useState<Durum>('yukleniyor');
   const [etkinlikler, setEtkinlikler] = useState<Etkinlik[]>([]);
@@ -89,7 +93,12 @@ export default function KesfetScreen() {
         <FlatList
           data={etkinlikler}
           keyExtractor={(item) => item.id}
-          renderItem={({ item }) => <EtkinlikKarti etkinlik={item} />}
+          renderItem={({ item }) => (
+            <EtkinlikKarti
+              etkinlik={item}
+              onPress={() => navigation.navigate('EtkinlikDetay', { etkinlikId: item.id })}
+            />
+          )}
           contentContainerStyle={styles.listeIcerik}
           ListEmptyComponent={<BosDurum />}
           refreshControl={

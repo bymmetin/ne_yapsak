@@ -1,10 +1,10 @@
 import { Ionicons } from '@expo/vector-icons';
-import { Image, StyleSheet, Text, View } from 'react-native';
+import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { colors, radius, spacing, typography } from '../constants/theme';
 import { Etkinlik, Kategori } from '../types';
 
-const KATEGORI_ETIKETLERI: Record<Kategori, string> = {
+export const KATEGORI_ETIKETLERI: Record<Kategori, string> = {
   muzik: 'Müzik',
   spor: 'Spor',
   sanat: 'Sanat',
@@ -16,18 +16,19 @@ const KATEGORI_ETIKETLERI: Record<Kategori, string> = {
 
 const AYLAR = ['Oca', 'Şub', 'Mar', 'Nis', 'May', 'Haz', 'Tem', 'Ağu', 'Eyl', 'Eki', 'Kas', 'Ara'];
 
-function formatTarihSaat(tarih: string, saat: string): string {
+export function formatTarihSaat(tarih: string, saat: string): string {
   const [yil, ay, gun] = tarih.split('-').map(Number);
   return `${gun} ${AYLAR[ay - 1]} ${yil}, ${saat}`;
 }
 
 type Props = {
   etkinlik: Etkinlik;
+  onPress?: () => void;
 };
 
-export default function EtkinlikKarti({ etkinlik }: Props) {
+export default function EtkinlikKarti({ etkinlik, onPress }: Props) {
   return (
-    <View style={styles.card}>
+    <Pressable style={styles.card} onPress={onPress}>
       {etkinlik.kapakFotoUrl ? (
         <Image source={{ uri: etkinlik.kapakFotoUrl }} style={styles.kapak} />
       ) : (
@@ -51,7 +52,7 @@ export default function EtkinlikKarti({ etkinlik }: Props) {
           </Text>
         </View>
       </View>
-    </View>
+    </Pressable>
   );
 }
 
