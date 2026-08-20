@@ -9,33 +9,19 @@ import type { AuthStackParamList } from '../types/navigation';
 
 const TEKRAR_GONDERME_BEKLEME_SANIYE = 30;
 
-type Durum = 'bekleniyor' | 'dogrulandi';
-
 type Props = NativeStackScreenProps<AuthStackParamList, 'EmailDogrulama'>;
 
+// Doğrulama linkinin kendisi (deep link) App.tsx'te kökte yakalanıp
+// exchangeCodeForSession ile işleniyor; oturum kurulunca AuthContext'in
+// global onAuthStateChange aboneliği bunu yakalayıp App.tsx'teki kökü
+// otomatik olarak TabNavigator'a geçirir — bu ekran hangi anda mount
+// olursa olsun kendiliğinden unmount olur, burada ayrıca bir şey
+// dinlemeye gerek yok.
 export default function EmailDogrulamaScreen({ route }: Props) {
   const { email } = route.params;
-  const [durum, setDurum] = useState<Durum>('bekleniyor');
   const [gonderiliyor, setGonderiliyor] = useState(false);
   const [beklemeSaniye, setBeklemeSaniye] = useState(0);
   const [mesaj, setMesaj] = useState<string | null>(null);
-
-  // Doğrulama linkinin kendisi (deep link) App.tsx'te kökte yakalanıp
-  // exchangeCodeForSession ile işleniyor — bu ekran hangi anda mount
-  // olursa olsun link kaybolmasın diye. Burada sadece o işlemin sonucunda
-  // oturumun kurulup kurulmadığını dinliyoruz.
-  useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => {
-      if (data.session) setDurum('dogrulandi');
-    });
-
-    const { data: abonelik } = supabase.auth.onAuthStateChange((event, session) => {
-      console.log('[EmailDogrulama] onAuthStateChange:', event, 'oturum var mı:', !!session);
-      if (session) setDurum('dogrulandi');
-    });
-
-    return () => abonelik.subscription.unsubscribe();
-  }, []);
 
   useEffect(() => {
     if (beklemeSaniye <= 0) return;
@@ -63,18 +49,6 @@ export default function EmailDogrulamaScreen({ route }: Props) {
     setMesaj('Doğrulama e-postası tekrar gönderildi.');
     setBeklemeSaniye(TEKRAR_GONDERME_BEKLEME_SANIYE);
   };
-
-  if (durum === 'dogrulandi') {
-    return (
-      <View style={styles.container}>
-        <Ionicons name="checkmark-circle" size={64} color={colors.success} />
-        <Text style={styles.baslik}>E-postan doğrulandı!</Text>
-        <Text style={styles.aciklama}>
-          Artık giriş yapabilirsin — giriş ekranı Gün 9&apos;da eklenecek.
-        </Text>
-      </View>
-    );
-  }
 
   return (
     <View style={styles.container}>

@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import * as Linking from 'expo-linking';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
@@ -14,33 +14,26 @@ import {
 } from 'react-native';
 
 import { colors, radius, spacing, typography } from '../constants/theme';
+import { useAuth } from '../context/AuthContext';
 import { supabase } from '../services/supabase';
 
 const EMAIL_DESENI = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-type Durum = 'email-gir' | 'link-gonderildi' | 'yeni-sifre-gir' | 'tamamlandi';
+type Durum = 'email-gir' | 'link-gonderildi' | 'tamamlandi';
 
 export default function SifremiUnuttumScreen() {
+  // Sıfırlama linkinin kendisi (deep link) App.tsx'te kökte yakalanıp
+  // exchangeCodeForSession ile işleniyor; PASSWORD_RECOVERY olayı
+  // AuthContext'te global olarak dinlenip sifreKurtarmaModu'na yansıtılıyor
+  // (bkz. context/AuthContext.tsx). Bu true olduğu sürece App.tsx zaten
+  // AuthStack'te kalıyor, biz de burada yeni şifre formuna geçiyoruz.
+  const { sifreKurtarmaModu, sifreKurtarmaTamamlandi } = useAuth();
   const [durum, setDurum] = useState<Durum>('email-gir');
   const [email, setEmail] = useState('');
   const [yeniSifre, setYeniSifre] = useState('');
   const [yeniSifreTekrar, setYeniSifreTekrar] = useState('');
   const [hata, setHata] = useState<string | null>(null);
   const [gonderiliyor, setGonderiliyor] = useState(false);
-
-  // Sıfırlama linkinin kendisi (deep link) App.tsx'te kökte yakalanıp
-  // exchangeCodeForSession ile işleniyor (bkz. App.tsx). Burada sadece o
-  // işlemin PASSWORD_RECOVERY olayını dinleyip yeni şifre formuna geçiyoruz.
-  useEffect(() => {
-    const { data: abonelik } = supabase.auth.onAuthStateChange((event) => {
-      console.log('[ŞifremiUnuttum] onAuthStateChange:', event);
-      if (event === 'PASSWORD_RECOVERY') {
-        setDurum('yeni-sifre-gir');
-      }
-    });
-
-    return () => abonelik.subscription.unsubscribe();
-  }, []);
 
   const linkGonder = async () => {
     setHata(null);
@@ -98,6 +91,9 @@ export default function SifremiUnuttumScreen() {
 
     console.log('[ŞifremiUnuttum] updateUser BAŞARILI.');
     setDurum('tamamlandi');
+    // sifreKurtarmaModu'nu kapatır; App.tsx kökü artık TabNavigator'a
+    // geçebilir (session zaten PASSWORD_RECOVERY'den beri mevcuttu).
+    sifreKurtarmaTamamlandi();
   };
 
   if (durum === 'tamamlandi') {
@@ -105,15 +101,12 @@ export default function SifremiUnuttumScreen() {
       <View style={styles.durumContainer}>
         <Ionicons name="checkmark-circle" size={64} color={colors.success} />
         <Text style={styles.durumBaslik}>Şifren güncellendi!</Text>
-        <Text style={styles.durumMetin}>
-          Yeni şifrenle giriş yapabilirsin — Gün 10&apos;da ana ekrana otomatik yönlendirme
-          eklenecek.
-        </Text>
+        <Text style={styles.durumMetin}>Yeni şifrenle giriş yapabilirsin.</Text>
       </View>
     );
   }
 
-  if (durum === 'yeni-sifre-gir') {
+  if (sifreKurtarmaModu) {
     return (
       <KeyboardAvoidingView
         style={styles.container}

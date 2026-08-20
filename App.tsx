@@ -2,18 +2,22 @@ import { NavigationContainer } from '@react-navigation/native';
 import * as Linking from 'expo-linking';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect } from 'react';
+import { ActivityIndicator, StyleSheet, View } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
+import { colors } from './constants/theme';
+import { AuthProvider, useAuth } from './context/AuthContext';
 import AuthStack from './navigation/AuthStack';
+import TabNavigator from './navigation/TabNavigator';
 import { supabase } from './services/supabase';
 
-// E-posta doğrulama linkine tıklanınca uygulama bu deep link ile açılır.
-// Dinleyici kasıtlı olarak kökte (tek bir ekranda değil): uygulama tamamen
-// kapalıyken linke tıklanırsa (getInitialURL) veya açıkken/arka plandan
-// dönerken (addEventListener) link hangi ekran o an mount'luysa ona değil,
-// her zaman buraya gelir. exchangeCodeForSession'dan sonra oturum
-// AsyncStorage'a yazılır; ekranlar bunu kendi onAuthStateChange
-// aboneliğiyle okur (bkz. EmailDogrulamaScreen).
+// E-posta doğrulama/şifre sıfırlama linkine tıklanınca uygulama bu deep
+// link ile açılır. Dinleyici kasıtlı olarak kökte (tek bir ekranda değil):
+// uygulama tamamen kapalıyken linke tıklanırsa (getInitialURL) veya
+// açıkken/arka plandan dönerken (addEventListener) link hangi ekran o an
+// mount'luysa ona değil, her zaman buraya gelir. exchangeCodeForSession'dan
+// sonra oturum AsyncStorage'a yazılır; AuthContext'in onAuthStateChange
+// aboneliği bunu global olarak yakalar (bkz. context/AuthContext.tsx).
 function dogrulamaKoduIsle(url: string) {
   console.log('[DeepLink] Gelen URL (tam):', url);
   const { queryParams } = Linking.parse(url);
@@ -34,10 +38,24 @@ function dogrulamaKoduIsle(url: string) {
   });
 }
 
-// Gün 10'da AuthContext kurulunca kök burada oturum durumuna göre
-// AuthStack / TabNavigator arasında seçim yapacak. O güne kadar kayıt ve
-// e-posta doğrulama akışını test edebilmek için doğrudan AuthStack render
-// ediliyor.
+// Oturum durumuna göre AuthStack / TabNavigator arasında seçim yapar.
+// sifreKurtarmaModu true iken oturum var olsa bile AuthStack'te kalınır
+// (bkz. context/AuthContext.tsx) — yoksa şifre sıfırlama linkinden dönen
+// kullanıcı yeni şifre formunu görmeden ana ekrana atılır.
+function KokNavigasyon() {
+  const { session, yukleniyor, sifreKurtarmaModu } = useAuth();
+
+  if (yukleniyor) {
+    return (
+      <View style={styles.yukleniyor}>
+        <ActivityIndicator size="large" color={colors.primary} />
+      </View>
+    );
+  }
+
+  return session && !sifreKurtarmaModu ? <TabNavigator /> : <AuthStack />;
+}
+
 export default function App() {
   useEffect(() => {
     // Uygulama tamamen kapalıyken linke tıklanıp açıldığı durum.
@@ -55,11 +73,22 @@ export default function App() {
   }, []);
 
   return (
-    <SafeAreaProvider>
-      <NavigationContainer>
-        <AuthStack />
-      </NavigationContainer>
-      <StatusBar style="auto" />
-    </SafeAreaProvider>
+    <AuthProvider>
+      <SafeAreaProvider>
+        <NavigationContainer>
+          <KokNavigasyon />
+        </NavigationContainer>
+        <StatusBar style="auto" />
+      </SafeAreaProvider>
+    </AuthProvider>
   );
 }
+
+const styles = StyleSheet.create({
+  yukleniyor: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.background,
+  },
+});

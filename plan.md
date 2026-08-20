@@ -88,7 +88,7 @@ araç/teknikle yapıldığı, hangi sonuca ulaşıldığı. "...yapılmıştır"
 **10. Global auth state**
 - Context API ile `AuthContext`, `onAuthStateChange` dinleyicisi
 - Girişsiz kullanıcının korumalı ekranlara erişimini engelleme
-→ **SS + defter**
+→ **SS + defter** *(tamamlandı — çıkış yapma Gün 11'de ekleniyor, o güne kadar test için oturumu Supabase panelinden veya uygulama verisini silerek sıfırlayabilirsin)*
 
 **11. Çıkış ve hata mesajları**
 - `signOut`, yanlış şifre / var olan e-posta gibi durumlarda net mesaj

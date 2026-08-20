@@ -33,8 +33,11 @@ export default function GirisScreen({ navigation }: Props) {
   const [hata, setHata] = useState<string | null>(null);
   const [gonderiliyor, setGonderiliyor] = useState(false);
   const [googleGonderiliyor, setGoogleGonderiliyor] = useState(false);
-  const [girisYapildi, setGirisYapildi] = useState(false);
 
+  // Başarılı girişten sonra ayrıca bir şey yapmaya gerek yok: AuthContext'in
+  // onAuthStateChange aboneliği oturumu yakalayıp App.tsx'teki kökü
+  // otomatik olarak TabNavigator'a geçirir, bu ekran kendiliğinden unmount
+  // olur.
   const girisYap = async () => {
     setHata(null);
 
@@ -61,10 +64,7 @@ export default function GirisScreen({ navigation }: Props) {
         code: error.code,
       });
       setHata(error.message);
-      return;
     }
-
-    setGirisYapildi(true);
   };
 
   // --- Google ile giriş (Supabase OAuth) -----------------------------
@@ -108,17 +108,6 @@ export default function GirisScreen({ navigation }: Props) {
     setGoogleGonderiliyor(false);
   };
   // --- Google ile giriş sonu ------------------------------------------
-
-  if (girisYapildi) {
-    return (
-      <View style={styles.durumContainer}>
-        <Text style={styles.durumBaslik}>Giriş başarılı!</Text>
-        <Text style={styles.durumMetin}>
-          Ana ekrana otomatik yönlendirme Gün 10&apos;da AuthContext kurulunca eklenecek.
-        </Text>
-      </View>
-    );
-  }
 
   return (
     <KeyboardAvoidingView
@@ -285,25 +274,5 @@ const styles = StyleSheet.create({
     fontSize: typography.fontSize.sm,
     color: colors.primary,
     fontWeight: typography.fontWeight.medium,
-  },
-  durumContainer: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: colors.background,
-    padding: spacing.xl,
-  },
-  durumBaslik: {
-    fontSize: typography.fontSize.xl,
-    fontWeight: typography.fontWeight.bold,
-    color: colors.text,
-    textAlign: 'center',
-  },
-  durumMetin: {
-    marginTop: spacing.sm,
-    fontSize: typography.fontSize.md,
-    color: colors.textSecondary,
-    textAlign: 'center',
-    lineHeight: typography.lineHeight.md,
   },
 });
