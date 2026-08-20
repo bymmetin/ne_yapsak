@@ -17,6 +17,8 @@ export type KesfetStackParamList = {
 // ile TabNavigator arasında oturum durumuna göre geçiş yapılacak; şimdilik
 // App.tsx'te doğrudan bu stack render ediliyor.
 export type AuthStackParamList = {
+  Giris: undefined;
   Kayit: undefined;
   EmailDogrulama: { email: string };
+  SifremiUnuttum: undefined;
 };

@@ -17,6 +17,15 @@ import { colors, radius, spacing, typography } from '../constants/theme';
 import { supabase } from '../services/supabase';
 import type { AuthStackParamList } from '../types/navigation';
 
+// Doğrulama linkine tıklanınca kullanıcının geri döneceği adres. Expo Go'da
+// exp://<ip>:8081/--/auth-callback, development/production build'de
+// neyapsak://auth-callback üretir - Linking.createURL ortamı kendisi
+// algılar. TANI AMAÇLI: Supabase Dashboard > Authentication > URL
+// Configuration > Redirect URLs'e eklenecek tam değeri görmek için
+// konsola yazdırılıyor; adres doğrulanınca bu log kaldırılabilir.
+const EMAIL_YONLENDIRME_URL = Linking.createURL('auth-callback');
+console.log('[Kayıt] emailRedirectTo:', EMAIL_YONLENDIRME_URL);
+
 type FormAlanlari = {
   ad: string;
   soyad: string;
@@ -98,7 +107,7 @@ export default function KayitScreen({ navigation }: Props) {
           soyad: alanlar.soyad.trim(),
           kullanici_adi: alanlar.kullaniciAdi.trim(),
         },
-        emailRedirectTo: Linking.createURL('auth-callback'),
+        emailRedirectTo: EMAIL_YONLENDIRME_URL,
       },
     });
     setGonderiliyor(false);
@@ -173,6 +182,10 @@ export default function KayitScreen({ navigation }: Props) {
           ) : (
             <Text style={styles.butonMetin}>Kayıt Ol</Text>
           )}
+        </Pressable>
+
+        <Pressable onPress={() => navigation.navigate('Giris')} style={styles.girisLink}>
+          <Text style={styles.girisMetin}>Zaten hesabın var mı? Giriş Yap</Text>
         </Pressable>
       </ScrollView>
     </KeyboardAvoidingView>
@@ -275,5 +288,14 @@ const styles = StyleSheet.create({
     color: colors.white,
     fontWeight: typography.fontWeight.bold,
     fontSize: typography.fontSize.md,
+  },
+  girisLink: {
+    alignSelf: 'center',
+    marginTop: spacing.lg,
+  },
+  girisMetin: {
+    fontSize: typography.fontSize.sm,
+    color: colors.primary,
+    fontWeight: typography.fontWeight.medium,
   },
 });

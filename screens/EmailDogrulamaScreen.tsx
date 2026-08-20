@@ -1,6 +1,5 @@
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
-import * as Linking from 'expo-linking';
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
 
@@ -21,27 +20,21 @@ export default function EmailDogrulamaScreen({ route }: Props) {
   const [beklemeSaniye, setBeklemeSaniye] = useState(0);
   const [mesaj, setMesaj] = useState<string | null>(null);
 
-  // Doğrulama linkine tıklanınca uygulama neyapsak://auth-callback?code=...
-  // ile açılır. exchangeCodeForSession sadece kodu bekler, tüm URL'i değil.
+  // Doğrulama linkinin kendisi (deep link) App.tsx'te kökte yakalanıp
+  // exchangeCodeForSession ile işleniyor — bu ekran hangi anda mount
+  // olursa olsun link kaybolmasın diye. Burada sadece o işlemin sonucunda
+  // oturumun kurulup kurulmadığını dinliyoruz.
   useEffect(() => {
-    const kodDenetle = async (gelenUrl: string | null) => {
-      if (!gelenUrl) return;
-      const { queryParams } = Linking.parse(gelenUrl);
-      const kod = typeof queryParams?.code === 'string' ? queryParams.code : null;
-      if (!kod) return;
-
-      const { error } = await supabase.auth.exchangeCodeForSession(kod);
-      if (!error) {
-        setDurum('dogrulandi');
-      }
-    };
-
-    const abonelik = Linking.addEventListener('url', ({ url }) => {
-      kodDenetle(url);
+    supabase.auth.getSession().then(({ data }) => {
+      if (data.session) setDurum('dogrulandi');
     });
-    Linking.getInitialURL().then(kodDenetle);
 
-    return () => abonelik.remove();
+    const { data: abonelik } = supabase.auth.onAuthStateChange((event, session) => {
+      console.log('[EmailDogrulama] onAuthStateChange:', event, 'oturum var mı:', !!session);
+      if (session) setDurum('dogrulandi');
+    });
+
+    return () => abonelik.subscription.unsubscribe();
   }, []);
 
   useEffect(() => {
@@ -53,13 +46,20 @@ export default function EmailDogrulamaScreen({ route }: Props) {
   const tekrarGonder = async () => {
     setGonderiliyor(true);
     setMesaj(null);
-    const { error } = await supabase.auth.resend({ type: 'signup', email });
+    const { data, error } = await supabase.auth.resend({ type: 'signup', email });
     setGonderiliyor(false);
 
     if (error) {
+      console.log('[EmailDogrulama] resend HATA:', {
+        message: error.message,
+        status: error.status,
+        code: error.code,
+      });
       setMesaj(error.message);
       return;
     }
+
+    console.log('[EmailDogrulama] resend BAŞARILI:', data);
     setMesaj('Doğrulama e-postası tekrar gönderildi.');
     setBeklemeSaniye(TEKRAR_GONDERME_BEKLEME_SANIYE);
   };

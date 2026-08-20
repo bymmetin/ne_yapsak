@@ -83,7 +83,7 @@ araç/teknikle yapıldığı, hangi sonuca ulaşıldığı. "...yapılmıştır"
 - Giriş formu + `supabase.auth.signInWithPassword`
 - "Şifremi Unuttum" akışı
 - Google ile giriş (Supabase OAuth) entegrasyonu
-→ **SS + defter**
+→ **SS + defter** *(giriş formu + şifremi unuttum test edilebilir durumda; Google OAuth kod tarafı yazıldı ama Google Cloud/Supabase panel kurulumu yapılmadan test edilemez)*
 
 **10. Global auth state**
 - Context API ile `AuthContext`, `onAuthStateChange` dinleyicisi
