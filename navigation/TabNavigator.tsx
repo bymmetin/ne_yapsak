@@ -7,18 +7,13 @@ import EtkinlikOlusturScreen from '../screens/EtkinlikOlusturScreen';
 import KesfetScreen from '../screens/KesfetScreen';
 import ProfilScreen from '../screens/ProfilScreen';
 import TakvimScreen from '../screens/TakvimScreen';
+import type { RouteName } from '../types/navigation';
 
-export type TabParamList = {
-  Kesfet: undefined;
-  Takvim: undefined;
-  EtkinlikOlustur: undefined;
-  Bildirimler: undefined;
-  Profil: undefined;
-};
+export type TabParamList = Record<RouteName, undefined>;
 
 type IconName = keyof typeof Ionicons.glyphMap;
 
-const TAB_ICONS: Record<keyof TabParamList, { active: IconName; inactive: IconName }> = {
+const TAB_ICONS: Record<RouteName, { active: IconName; inactive: IconName }> = {
   Kesfet: { active: 'compass', inactive: 'compass-outline' },
   Takvim: { active: 'calendar', inactive: 'calendar-outline' },
   EtkinlikOlustur: { active: 'add-circle', inactive: 'add-circle-outline' },
