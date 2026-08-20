@@ -77,7 +77,7 @@ araç/teknikle yapıldığı, hangi sonuca ulaşıldığı. "...yapılmıştır"
 - Kayıt formu + validasyon
 - `supabase.auth.signUp` entegrasyonu
 - E-posta doğrulama bekleme ekranı: "tekrar gönder" butonu, doğrulama linkinden döndükten sonra oturumu yakalama
-→ **SS + defter**
+→ **SS + defter** *(tamamlandı — test için schema.sql'in Supabase'de çalıştırılmış olması gerekir)*
 
 **9. Giriş akışı**
 - Giriş formu + `supabase.auth.signInWithPassword`

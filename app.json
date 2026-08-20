@@ -3,6 +3,7 @@
     "name": "ne_yapsak",
     "slug": "ne_yapsak",
     "version": "1.0.0",
+    "scheme": "neyapsak",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",

@@ -12,3 +12,11 @@ export type KesfetStackParamList = {
   KesfetListesi: undefined;
   EtkinlikDetay: { etkinlikId: string };
 };
+
+// Kimlik doğrulama akışı (Gün 8-9). Gün 10'da AuthContext kurulunca bu stack
+// ile TabNavigator arasında oturum durumuna göre geçiş yapılacak; şimdilik
+// App.tsx'te doğrudan bu stack render ediliyor.
+export type AuthStackParamList = {
+  Kayit: undefined;
+  EmailDogrulama: { email: string };
+};

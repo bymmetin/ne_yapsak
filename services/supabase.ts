@@ -14,12 +14,15 @@ if (!supabaseUrl || !supabaseAnonKey) {
 // AsyncStorage ile oturum kalıcılığı: uygulama kapatılıp açıldığında kullanıcı
 // tekrar giriş yapmak zorunda kalmasın diye (Gün 10'daki AuthContext bu
 // oturumu okuyacak). detectSessionInUrl kapalı çünkü React Native'de tarayıcı
-// URL'i yok, web'e özgü bu kontrol gereksiz uyarı üretiyor.
+// URL'i yok, web'e özgü bu kontrol gereksiz uyarı üretiyor. flowType 'pkce':
+// e-posta doğrulama linkinden dönüşte kodu manuel olarak
+// exchangeCodeForSession'a vermemiz gerekiyor (bkz. EmailDogrulamaScreen).
 export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   auth: {
     storage: AsyncStorage,
     autoRefreshToken: true,
     persistSession: true,
     detectSessionInUrl: false,
+    flowType: 'pkce',
   },
 });
