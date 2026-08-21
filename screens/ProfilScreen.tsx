@@ -1,18 +1,36 @@
 import { Ionicons } from '@expo/vector-icons';
-import { Image, StyleSheet, Text, View } from 'react-native';
+import { useState } from 'react';
+import { ActivityIndicator, Alert, Image, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { colors, radius, spacing, typography } from '../constants/theme';
 import { mockEtkinlikler, mockKullanicilar } from '../services/mockData';
+import { supabase } from '../services/supabase';
 
-// Gün 10'da AuthContext kurulunca oturum açan gerçek kullanıcıyla değişecek.
+// Gün 12'de profiles tablosu bağlanınca oturum açan gerçek kullanıcıyla
+// değişecek.
 const gecerliKullanici = mockKullanicilar[0];
 
 export default function ProfilScreen() {
+  const [cikisYapiliyor, setCikisYapiliyor] = useState(false);
+
   const duzenledigiEtkinlikSayisi = mockEtkinlikler.filter(
     (etkinlik) => etkinlik.organizatorId === gecerliKullanici.id,
   ).length;
   // katilimlar tablosu henüz yok (Gün 21), bu yüzden şimdilik sabit.
   const katildigiEtkinlikSayisi = 0;
+
+  // Başarılı signOut sonrası ayrıca bir şey yapmaya gerek yok: AuthContext'in
+  // onAuthStateChange aboneliği session'ı null yapıp App.tsx'teki kökü
+  // otomatik olarak AuthStack'e geçirir.
+  const cikisYap = async () => {
+    setCikisYapiliyor(true);
+    const { error } = await supabase.auth.signOut();
+    setCikisYapiliyor(false);
+
+    if (error) {
+      Alert.alert('Çıkış yapılamadı', error.message);
+    }
+  };
 
   return (
     <View style={styles.container}>
@@ -40,6 +58,21 @@ export default function ProfilScreen() {
           <Text style={styles.sayacEtiket}>Katıldığım</Text>
         </View>
       </View>
+
+      <Pressable
+        style={[styles.cikisButon, cikisYapiliyor && styles.cikisButonPasif]}
+        onPress={cikisYap}
+        disabled={cikisYapiliyor}
+      >
+        {cikisYapiliyor ? (
+          <ActivityIndicator color={colors.error} />
+        ) : (
+          <>
+            <Ionicons name="log-out-outline" size={20} color={colors.error} />
+            <Text style={styles.cikisMetin}>Çıkış Yap</Text>
+          </>
+        )}
+      </Pressable>
     </View>
   );
 }
@@ -109,5 +142,25 @@ const styles = StyleSheet.create({
     marginTop: 2,
     fontSize: typography.fontSize.xs,
     color: colors.textSecondary,
+  },
+  cikisButon: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.xs,
+    marginTop: spacing.xl,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.lg,
+    borderWidth: 1,
+    borderColor: colors.error,
+    borderRadius: radius.md,
+  },
+  cikisButonPasif: {
+    opacity: 0.6,
+  },
+  cikisMetin: {
+    fontSize: typography.fontSize.md,
+    fontWeight: typography.fontWeight.medium,
+    color: colors.error,
   },
 });

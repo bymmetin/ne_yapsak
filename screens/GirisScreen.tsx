@@ -15,6 +15,7 @@ import {
 } from 'react-native';
 
 import { colors, radius, spacing, typography } from '../constants/theme';
+import { authHataMesaji } from '../services/authHatalari';
 import { supabase } from '../services/supabase';
 import type { AuthStackParamList } from '../types/navigation';
 
@@ -63,7 +64,7 @@ export default function GirisScreen({ navigation }: Props) {
         status: error.status,
         code: error.code,
       });
-      setHata(error.message);
+      setHata(authHataMesaji(error));
     }
   };
 
@@ -99,7 +100,7 @@ export default function GirisScreen({ navigation }: Props) {
         code: error?.code,
       });
       setGoogleGonderiliyor(false);
-      setHata(error?.message ?? 'Google ile giriş başlatılamadı.');
+      setHata(error ? authHataMesaji(error) : 'Google ile giriş başlatılamadı.');
       return;
     }
 

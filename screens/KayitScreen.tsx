@@ -14,6 +14,7 @@ import {
 } from 'react-native';
 
 import { colors, radius, spacing, typography } from '../constants/theme';
+import { authHataMesaji } from '../services/authHatalari';
 import { supabase } from '../services/supabase';
 import type { AuthStackParamList } from '../types/navigation';
 
@@ -113,7 +114,7 @@ export default function KayitScreen({ navigation }: Props) {
     setGonderiliyor(false);
 
     if (error) {
-      setGenelHata(error.message);
+      setGenelHata(authHataMesaji(error));
       return;
     }
 
