@@ -25,6 +25,76 @@ create table if not exists public.profiles (
 
 alter table public.profiles enable row level security;
 
+-- profiles RLS politikaları (Gün 12).
+-- Okuma herkese açık: ad/soyad/avatar gibi profil bilgileri etkinlik
+-- listesinde/detayında organizatör ve katılımcı olarak herkese gösterilecek
+-- (Gün 17+, Gün 22). Yazma ise sadece kendi satırına - insert politikası
+-- kasıtlı yok, satırlar sadece aşağıdaki trigger (security definer) ile
+-- oluşturuluyor, istemci doğrudan insert edemiyor.
+create policy "profiles_herkese_acik_okuma" on public.profiles
+  for select using (true);
+
+create policy "profiles_sadece_kendi_guncelleme" on public.profiles
+  for update using (auth.uid() = id);
+
+-- Kayıt olunca profiles tablosunda otomatik satır oluşturma (Gün 12).
+-- signUp'a options.data ile gönderilen metadata (ad, soyad, kullanici_adi -
+-- bkz. KayitScreen.tsx) Supabase tarafından auth.users.raw_user_meta_data
+-- içine yazılıyor; bu fonksiyon her yeni auth.users satırında bunu okuyup
+-- profiles'a kopyalıyor. security definer gerekli çünkü normal istemci
+-- rolünün auth.users üzerinde trigger'la tetiklenen bir insert'ü
+-- public.profiles'a yapabilmesi RLS ile kısıtlı; fonksiyon tanımlayanın
+-- (postgres) yetkisiyle çalışıp bunu aşıyor. kullanici_adi alanına düşen
+-- coalesce fallback'i (new.id), Google OAuth gibi bu metadata'yı
+-- göndermeyen kayıt yollarında unique/not-null ihlaliyle tüm signUp'ın
+-- başarısız olmasını önlemek için var.
+create function public.handle_new_user()
+returns trigger
+language plpgsql
+security definer set search_path = public
+as $$
+begin
+  insert into public.profiles (id, ad, soyad, kullanici_adi)
+  values (
+    new.id,
+    coalesce(new.raw_user_meta_data ->> 'ad', ''),
+    coalesce(new.raw_user_meta_data ->> 'soyad', ''),
+    coalesce(new.raw_user_meta_data ->> 'kullanici_adi', new.id::text)
+  );
+  return new;
+end;
+$$;
+
+create trigger on_auth_user_created
+  after insert on auth.users
+  for each row execute function public.handle_new_user();
+
+-- Avatar yükleme için storage bucket'ı (Gün 12).
+-- public true: avatar_url'i doğrudan <public-url> olarak <Image> ile
+-- gösterebilmek için (imzalı URL/expiring link yönetmeye gerek kalmıyor).
+insert into storage.buckets (id, name, public)
+values ('avatars', 'avatars', true)
+on conflict (id) do nothing;
+
+-- Herkes okuyabilir (avatarlar zaten public bucket, bu politika olmadan da
+-- select çalışır ama storage.objects RLS varsayılan kapalı gelmiyor,
+-- açıkça yazmak daha güvenli).
+create policy "avatars_herkese_acik_okuma" on storage.objects
+  for select using (bucket_id = 'avatars');
+
+-- Yükleme/güncelleme sadece kendi dosyasına: ProfilScreen.tsx dosyaları
+-- "<kullanici_id>/avatar.<uzanti>" yoluna yazıyor, storage.foldername ilk
+-- klasör segmentini (kullanici_id) döndürüyor.
+create policy "avatars_sadece_kendi_yukleme" on storage.objects
+  for insert with check (
+    bucket_id = 'avatars' and (storage.foldername(name))[1] = auth.uid()::text
+  );
+
+create policy "avatars_sadece_kendi_guncelleme" on storage.objects
+  for update using (
+    bucket_id = 'avatars' and (storage.foldername(name))[1] = auth.uid()::text
+  );
+
 -- etkinlikler
 create table if not exists public.etkinlikler (
   id uuid primary key default gen_random_uuid(),
