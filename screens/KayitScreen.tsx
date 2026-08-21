@@ -14,7 +14,7 @@ import {
 } from 'react-native';
 
 import { colors, radius, spacing, typography } from '../constants/theme';
-import { authHataMesaji } from '../services/authHatalari';
+import { authHataMesaji, EMAIL_ZATEN_KAYITLI_MESAJI } from '../services/authHatalari';
 import { supabase } from '../services/supabase';
 import type { AuthStackParamList } from '../types/navigation';
 
@@ -98,7 +98,7 @@ export default function KayitScreen({ navigation }: Props) {
 
     setGonderiliyor(true);
     const email = alanlar.email.trim();
-    const { error } = await supabase.auth.signUp({
+    const { data, error } = await supabase.auth.signUp({
       email,
       password: alanlar.sifre,
       options: {
@@ -115,6 +115,17 @@ export default function KayitScreen({ navigation }: Props) {
 
     if (error) {
       setGenelHata(authHataMesaji(error));
+      return;
+    }
+
+    // Supabase e-posta numaralandırma koruması: e-posta zaten kayıtlıysa
+    // signUp hata döndürmez, data.user dolu gelir ama identities dizisi boş
+    // olur (yeni kullanıcıda en az bir "email" identity'si bulunur). Bu,
+    // "zaten kayıtlı" durumunu ayırt etmek için elimizdeki tek güvenilir
+    // sinyal.
+    console.log('[Kayıt] identities uzunluğu:', data.user?.identities?.length);
+    if (data.user && data.user.identities?.length === 0) {
+      setGenelHata(EMAIL_ZATEN_KAYITLI_MESAJI);
       return;
     }
 
