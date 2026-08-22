@@ -119,6 +119,25 @@ alter table public.etkinlikler enable row level security;
 create index if not exists etkinlikler_tarih_idx on public.etkinlikler (tarih);
 create index if not exists etkinlikler_organizator_id_idx on public.etkinlikler (organizator_id);
 
+-- etkinlikler RLS politikaları (Gün 14).
+-- Okuma herkese açık: Keşfet ekranı giriş yapmamış kullanıcıya da açık
+-- olacağı için select politikası auth.uid() kontrolü yapmadan true döner.
+create policy "etkinlikler_herkese_acik_okuma" on public.etkinlikler
+  for select using (true);
+
+-- Oluşturma: sadece giriş yapmış kullanıcı, ve sadece kendi id'sini
+-- organizator_id olarak yazabilir (başkası adına etkinlik açamaz).
+create policy "etkinlikler_organizator_olusturma" on public.etkinlikler
+  for insert with check (auth.uid() = organizator_id);
+
+-- Güncelleme/silme: sadece etkinliği oluşturan organizatör (Gün 18-19'da
+-- düzenleme/iptal formlarının dayanacağı politika).
+create policy "etkinlikler_organizator_guncelleme" on public.etkinlikler
+  for update using (auth.uid() = organizator_id);
+
+create policy "etkinlikler_organizator_silme" on public.etkinlikler
+  for delete using (auth.uid() = organizator_id);
+
 -- katilimlar: bir kullanıcının bir etkinlikteki katılım kaydı (en fazla bir tane).
 create table if not exists public.katilimlar (
   id uuid primary key default gen_random_uuid(),
