@@ -34,7 +34,8 @@
         {
           "photosPermission": "Profil fotoğrafı seçebilmek için galerine erişim izni gerekiyor."
         }
-      ]
+      ],
+      "@react-native-community/datetimepicker"
     ]
   }
 }
