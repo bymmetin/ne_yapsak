@@ -2,10 +2,14 @@ import { Ionicons } from '@expo/vector-icons';
 import { zodResolver } from '@hookform/resolvers/zod';
 import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import { useFocusEffect } from '@react-navigation/native';
+import { decode } from 'base64-arraybuffer';
+import * as ImagePicker from 'expo-image-picker';
 import { useCallback, useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import {
+  ActivityIndicator,
   Alert,
+  Image,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -19,7 +23,11 @@ import { z } from 'zod';
 
 import { KATEGORI_ETIKETLERI } from '../components/KategoriEtiket';
 import { colors, radius, spacing, typography } from '../constants/theme';
+import { useAuth } from '../context/AuthContext';
+import { supabase } from '../services/supabase';
 import { Kategori } from '../types';
+
+const KAPAK_BUCKET = 'etkinlik-kapaklari';
 
 // KATEGORI_ETIKETLERI tek doğruluk kaynağı; z.enum burada yeniden bir kategori
 // listesi yazmak yerine onun anahtarlarını kullanıyor ki iki liste birbirinden
@@ -77,7 +85,13 @@ function formatSaat(deger: Date): string {
 type PickerModu = 'date' | 'time' | null;
 
 export default function EtkinlikOlusturScreen() {
+  const { session } = useAuth();
+  const organizatorId = session?.user.id ?? null;
+
   const [acikPicker, setAcikPicker] = useState<PickerModu>(null);
+  const [kapakFotoUrl, setKapakFotoUrl] = useState<string | null>(null);
+  const [kapakDosyaYolu, setKapakDosyaYolu] = useState<string | null>(null);
+  const [kapakYukleniyor, setKapakYukleniyor] = useState(false);
 
   const {
     control,
@@ -108,17 +122,107 @@ export default function EtkinlikOlusturScreen() {
         tarihSaat: varsayilanTarihSaat(),
       });
       setAcikPicker(null);
+      // NOT: sekme değiştirip formdan bu şekilde vazgeçmek, storage'a zaten
+      // yüklenmiş olabilecek kapak dosyasını silmiyor (aşağıdaki kaldirSec'in
+      // aksine burada bir remove çağrısı yok) - kullanıcı hiç "Kaldır"a
+      // basmadan sekmeyi değiştirirse dosya bucket'ta sahipsiz kalır. Bu
+      // senaryonun temizliği kasıtlı olarak kapsam dışı bırakıldı; ileride
+      // (Gün 35 cilalama gibi) organizator_id bazlı, DB'deki hiçbir
+      // etkinliğe referans vermeyen dosyaları temizleyen toplu bir iş bunu
+      // ele alabilir.
+      setKapakFotoUrl(null);
+      setKapakDosyaYolu(null);
     }, [reset]),
   );
 
-  // Gün 16'da kapak fotoğrafı, Gün 17'de bu veriyi supabase.from('etkinlikler')
-  // .insert(...)'e bağlayıp Keşfet ekranındaki mock veriyi gerçek sorguyla
-  // değiştireceğiz. Şimdilik adım 1'in (alanlar + validasyon) çalıştığını
-  // görünür kılmak için özet gösteriliyor.
+  // Galeriden fotoğraf seçip storage/etkinlik-kapaklari/<organizatorId>/<zaman
+  // damgası>.<uzanti> yoluna yükler. Etkinlik satırı henüz yok (insert Gün
+  // 17'de), bu yüzden ProfilScreen'deki avatarSec'in aksine burada sonuç bir
+  // DB satırına değil, sadece bu ekranın state'ine (kapakFotoUrl) yazılıyor;
+  // Gün 17'de insert'e kapak_foto_url olarak geçilecek. Silme işleminin
+  // (kaldirSec) doğru path'i bulabilmesi için dosya yolu da ayrıca
+  // kapakDosyaYolu'nda tutuluyor - publicUrl'den path'i geri türetmek yerine.
+  const kapakSec = async () => {
+    if (!organizatorId) return;
+
+    try {
+      const izin = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (!izin.granted) {
+        Alert.alert('İzin gerekli', 'Kapak fotoğrafı seçmek için galeri erişim izni vermelisin.');
+        return;
+      }
+
+      const sonuc = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ['images'],
+        allowsEditing: true,
+        aspect: [16, 9],
+        quality: 0.7,
+        base64: true,
+      });
+
+      if (sonuc.canceled) {
+        return;
+      }
+
+      const secilen = sonuc.assets[0];
+      if (!secilen.base64) {
+        return;
+      }
+
+      const uzanti = secilen.uri.split('.').pop()?.toLowerCase() ?? 'jpg';
+      const dosyaYolu = `${organizatorId}/${Date.now()}.${uzanti}`;
+
+      setKapakYukleniyor(true);
+
+      const { error: yuklemeHatasi } = await supabase.storage
+        .from(KAPAK_BUCKET)
+        .upload(dosyaYolu, decode(secilen.base64), {
+          contentType: secilen.mimeType ?? 'image/jpeg',
+        });
+
+      if (yuklemeHatasi) {
+        setKapakYukleniyor(false);
+        Alert.alert('Yükleme başarısız', yuklemeHatasi.message);
+        return;
+      }
+
+      const {
+        data: { publicUrl },
+      } = supabase.storage.from(KAPAK_BUCKET).getPublicUrl(dosyaYolu);
+
+      setKapakYukleniyor(false);
+      setKapakFotoUrl(publicUrl);
+      setKapakDosyaYolu(dosyaYolu);
+    } catch (err) {
+      setKapakYukleniyor(false);
+      Alert.alert('Bir hata oluştu', err instanceof Error ? err.message : String(err));
+    }
+  };
+
+  // "Kaldır"a basınca sadece ekrandaki önizlemeyi değil, storage'a zaten
+  // yüklenmiş dosyayı da siler - aksi halde kullanıcı birkaç kez foto
+  // değiştirip son kararını "Kaldır" ile verdiğinde bucket'ta kullanılmayan
+  // dosyalar birikir.
+  const kaldirSec = async () => {
+    if (!kapakDosyaYolu) return;
+
+    setKapakFotoUrl(null);
+    setKapakDosyaYolu(null);
+
+    const { error } = await supabase.storage.from(KAPAK_BUCKET).remove([kapakDosyaYolu]);
+    if (error) {
+      Alert.alert('Fotoğraf silinemedi', error.message);
+    }
+  };
+
+  // Gün 17'de bu veriyi supabase.from('etkinlikler').insert(...)'e bağlayıp
+  // Keşfet ekranındaki mock veriyi gerçek sorguyla değiştireceğiz. Şimdilik
+  // adım 1'in (alanlar + validasyon + kapak fotoğrafı) çalıştığını görünür
+  // kılmak için özet gösteriliyor.
   const ileriGit = (veri: FormVerisi) => {
     Alert.alert(
       'Adım 1 tamam',
-      `${veri.baslik}\n${KATEGORI_ETIKETLERI[veri.kategori]}\n${formatTarih(veri.tarihSaat)} ${formatSaat(veri.tarihSaat)}`,
+      `${veri.baslik}\n${KATEGORI_ETIKETLERI[veri.kategori]}\n${formatTarih(veri.tarihSaat)} ${formatSaat(veri.tarihSaat)}\nKapak fotoğrafı: ${kapakFotoUrl ? 'Var' : 'Yok'}`,
     );
   };
 
@@ -130,6 +234,31 @@ export default function EtkinlikOlusturScreen() {
       <ScrollView contentContainerStyle={styles.icerik} keyboardShouldPersistTaps="handled">
         <Text style={styles.baslik}>Etkinlik Oluştur</Text>
         <Text style={styles.altBaslik}>Adım 1 / 3 — Temel Bilgiler</Text>
+
+        <View style={styles.alanContainer}>
+          <Text style={styles.alanEtiket}>Kapak Fotoğrafı (opsiyonel)</Text>
+          <Pressable
+            style={styles.kapakAlani}
+            onPress={kapakSec}
+            disabled={kapakYukleniyor || !organizatorId}
+          >
+            {kapakYukleniyor ? (
+              <ActivityIndicator color={colors.primary} />
+            ) : kapakFotoUrl ? (
+              <Image source={{ uri: kapakFotoUrl }} style={styles.kapakGorsel} />
+            ) : (
+              <>
+                <Ionicons name="image-outline" size={28} color={colors.textSecondary} />
+                <Text style={styles.kapakMetin}>Fotoğraf Seç</Text>
+              </>
+            )}
+          </Pressable>
+          {kapakFotoUrl && !kapakYukleniyor && (
+            <Pressable onPress={kaldirSec} style={styles.kapakKaldirButon}>
+              <Text style={styles.kapakKaldirMetin}>Kaldır</Text>
+            </Pressable>
+          )}
+        </View>
 
         <View style={styles.alanContainer}>
           <Text style={styles.alanEtiket}>Başlık</Text>
@@ -317,6 +446,35 @@ const styles = StyleSheet.create({
   aciklamaGirdi: {
     minHeight: 100,
     paddingTop: spacing.sm,
+  },
+  kapakAlani: {
+    height: 160,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderStyle: 'dashed',
+    backgroundColor: colors.surface,
+    alignItems: 'center',
+    justifyContent: 'center',
+    overflow: 'hidden',
+  },
+  kapakGorsel: {
+    width: '100%',
+    height: '100%',
+  },
+  kapakMetin: {
+    marginTop: spacing.xs,
+    fontSize: typography.fontSize.sm,
+    color: colors.textSecondary,
+  },
+  kapakKaldirButon: {
+    alignSelf: 'flex-end',
+    marginTop: spacing.xs,
+  },
+  kapakKaldirMetin: {
+    fontSize: typography.fontSize.xs,
+    color: colors.error,
+    fontWeight: typography.fontWeight.medium,
   },
   girdiHatali: {
     borderColor: colors.error,

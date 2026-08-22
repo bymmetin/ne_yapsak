@@ -138,6 +138,37 @@ create policy "etkinlikler_organizator_guncelleme" on public.etkinlikler
 create policy "etkinlikler_organizator_silme" on public.etkinlikler
   for delete using (auth.uid() = organizator_id);
 
+-- Etkinlik kapak fotoğrafı için storage bucket'ı (Gün 16).
+-- Foto, henüz etkinlik satırı yokken (insert Gün 17'de) seçiliyor; bu yüzden
+-- avatars'taki gibi sabit bir dosya adı yerine organizatörün id'si altında
+-- zaman damgalı bir dosya adı kullanılıyor - bkz. EtkinlikOlusturScreen.tsx.
+insert into storage.buckets (id, name, public)
+values ('etkinlik-kapaklari', 'etkinlik-kapaklari', true)
+on conflict (id) do nothing;
+
+create policy "etkinlik_kapaklari_herkese_acik_okuma" on storage.objects
+  for select using (bucket_id = 'etkinlik-kapaklari');
+
+-- Yükleme sadece kendi klasörüne: "<organizator_id>/<zaman_damgasi>.<uzanti>".
+-- Her seçimde yeni bir dosya adı üretildiği için (avatars'taki gibi upsert ile
+-- üzerine yazma yok) update politikasına gerek yok.
+create policy "etkinlik_kapaklari_sadece_kendi_yukleme" on storage.objects
+  for insert with check (
+    bucket_id = 'etkinlik-kapaklari' and (storage.foldername(name))[1] = auth.uid()::text
+  );
+
+-- Silme sadece kendi klasörüne: EtkinlikOlusturScreen.tsx'teki "Kaldır"
+-- butonu (kaldirSec), henüz forma bağlanmamış bir kapak fotoğrafından
+-- vazgeçilince storage.remove ile buraya düşüyor. Sekme değiştirip formdan
+-- bu şekilde vazgeçme senaryosu (kullanıcı "Kaldır"a hiç basmadan ayrılırsa)
+-- bu politikayla silinmiyor - o sahipsiz dosya senaryosunun temizliği
+-- kasıtlı olarak kapsam dışı, ileride (Gün 35 cilalama gibi) toplu bir
+-- orphan-dosya temizliğiyle ele alınabilir.
+create policy "etkinlik_kapaklari_sadece_kendi_silme" on storage.objects
+  for delete using (
+    bucket_id = 'etkinlik-kapaklari' and (storage.foldername(name))[1] = auth.uid()::text
+  );
+
 -- katilimlar: bir kullanıcının bir etkinlikteki katılım kaydı (en fazla bir tane).
 create table if not exists public.katilimlar (
   id uuid primary key default gen_random_uuid(),
