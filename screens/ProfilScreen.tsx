@@ -81,67 +81,83 @@ export default function ProfilScreen() {
   // base64 -> ArrayBuffer (base64-arraybuffer) Supabase'in RN için önerdiği
   // yöntem.
   const avatarSec = async (id: string) => {
-    const izin = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (!izin.granted) {
-      Alert.alert('İzin gerekli', 'Avatar seçmek için galeri erişim izni vermelisin.');
-      return;
-    }
+    console.log('[Avatar] tıklandı');
 
-    const sonuc = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ['images'],
-      allowsEditing: true,
-      aspect: [1, 1],
-      quality: 0.7,
-      base64: true,
-    });
+    try {
+      const izin = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      console.log('[Avatar] izin durumu:', izin.status);
+      if (!izin.granted) {
+        Alert.alert('İzin gerekli', 'Avatar seçmek için galeri erişim izni vermelisin.');
+        return;
+      }
 
-    if (sonuc.canceled) {
-      return;
-    }
-
-    const secilen = sonuc.assets[0];
-    if (!secilen.base64) {
-      return;
-    }
-
-    const uzanti = secilen.uri.split('.').pop()?.toLowerCase() ?? 'jpg';
-    const dosyaYolu = `${id}/avatar.${uzanti}`;
-
-    setAvatarYukleniyor(true);
-
-    const { error: yuklemeHatasi } = await supabase.storage
-      .from(AVATAR_BUCKET)
-      .upload(dosyaYolu, decode(secilen.base64), {
-        contentType: secilen.mimeType ?? 'image/jpeg',
-        upsert: true,
+      const sonuc = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ['images'],
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.7,
+        base64: true,
       });
+      console.log('[Avatar] seçim sonucu:', sonuc.canceled, sonuc.assets?.length);
 
-    if (yuklemeHatasi) {
+      if (sonuc.canceled) {
+        return;
+      }
+
+      const secilen = sonuc.assets[0];
+      if (!secilen.base64) {
+        console.log('[Avatar] seçilen assette base64 yok, iptal ediliyor.');
+        return;
+      }
+
+      const uzanti = secilen.uri.split('.').pop()?.toLowerCase() ?? 'jpg';
+      const dosyaYolu = `${id}/avatar.${uzanti}`;
+
+      setAvatarYukleniyor(true);
+      console.log('[Avatar] yükleniyor...');
+
+      const { data: yuklemeData, error: yuklemeHatasi } = await supabase.storage
+        .from(AVATAR_BUCKET)
+        .upload(dosyaYolu, decode(secilen.base64), {
+          contentType: secilen.mimeType ?? 'image/jpeg',
+          upsert: true,
+        });
+      console.log('[Avatar] yükleme sonucu:', yuklemeData, yuklemeHatasi);
+
+      if (yuklemeHatasi) {
+        setAvatarYukleniyor(false);
+        Alert.alert('Yükleme başarısız', yuklemeHatasi.message);
+        return;
+      }
+
+      const {
+        data: { publicUrl },
+      } = supabase.storage.from(AVATAR_BUCKET).getPublicUrl(dosyaYolu);
+      // Aynı dosya adına upsert yapılınca istemci/CDN eski görseli
+      // cache'leyebiliyor; URL'e zaman damgası ekleyip yeni isteği zorluyoruz.
+      const yeniAvatarUrl = `${publicUrl}?t=${Date.now()}`;
+
+      const { error: guncellemeHatasi } = await supabase
+        .from('profiles')
+        .update({ avatar_url: yeniAvatarUrl })
+        .eq('id', id);
+
       setAvatarYukleniyor(false);
-      Alert.alert('Yükleme başarısız', yuklemeHatasi.message);
-      return;
+
+      if (guncellemeHatasi) {
+        Alert.alert('Profil güncellenemedi', guncellemeHatasi.message);
+        return;
+      }
+
+      setProfil((onceki) => (onceki ? { ...onceki, avatarUrl: yeniAvatarUrl } : onceki));
+    } catch (err) {
+      // Şu ana kadar burada hiçbir catch yoktu; ImagePicker veya storage
+      // çağrılarından atılan bir hata sessizce yutulup onPress'in hiçbir şey
+      // yapmıyormuş gibi görünmesine yol açıyordu. Artık tam hata görünür.
+      setAvatarYukleniyor(false);
+      console.log('[Avatar] BEKLENMEYEN HATA:', err);
+      Alert.alert('Bir hata oluştu', err instanceof Error ? err.message : String(err));
     }
-
-    const {
-      data: { publicUrl },
-    } = supabase.storage.from(AVATAR_BUCKET).getPublicUrl(dosyaYolu);
-    // Aynı dosya adına upsert yapılınca istemci/CDN eski görseli
-    // cache'leyebiliyor; URL'e zaman damgası ekleyip yeni isteği zorluyoruz.
-    const yeniAvatarUrl = `${publicUrl}?t=${Date.now()}`;
-
-    const { error: guncellemeHatasi } = await supabase
-      .from('profiles')
-      .update({ avatar_url: yeniAvatarUrl })
-      .eq('id', id);
-
-    setAvatarYukleniyor(false);
-
-    if (guncellemeHatasi) {
-      Alert.alert('Profil güncellenemedi', guncellemeHatasi.message);
-      return;
-    }
-
-    setProfil((onceki) => (onceki ? { ...onceki, avatarUrl: yeniAvatarUrl } : onceki));
   };
 
   if (!kullaniciId || yukleniyor || !profil) {
@@ -164,19 +180,21 @@ export default function ProfilScreen() {
   return (
     <View style={styles.container}>
       <Pressable
-        style={styles.avatar}
+        style={styles.avatarAlani}
         onPress={() => avatarSec(kullaniciId)}
         disabled={avatarYukleniyor}
       >
-        {avatarYukleniyor ? (
-          <ActivityIndicator color={colors.white} />
-        ) : profil.avatarUrl ? (
-          <Image source={{ uri: profil.avatarUrl }} style={styles.avatarGorsel} />
-        ) : (
-          <Ionicons name="person" size={40} color={colors.white} />
-        )}
+        <View style={styles.avatar}>
+          {avatarYukleniyor ? (
+            <ActivityIndicator color={colors.white} />
+          ) : profil.avatarUrl ? (
+            <Image source={{ uri: profil.avatarUrl }} style={styles.avatarGorsel} />
+          ) : (
+            <Ionicons name="person" size={40} color={colors.white} />
+          )}
+        </View>
+        <Text style={styles.avatarDuzenle}>Fotoğrafı Değiştir</Text>
       </Pressable>
-      <Text style={styles.avatarDuzenle}>Fotoğrafı Değiştir</Text>
 
       <Text style={styles.isim}>
         {profil.ad} {profil.soyad}
@@ -227,6 +245,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: colors.background,
+  },
+  avatarAlani: {
+    alignItems: 'center',
   },
   avatar: {
     width: 88,
