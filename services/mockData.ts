@@ -1,6 +1,9 @@
 // Geliştirme aşamasında Supabase henüz kurulmadığı için (Gün 8) ekranları
 // gerçek veriyle test edebilmek amacıyla oluşturulan mock veri seti.
-// Gün 18'de bu veri, Supabase'den gelen `select` sorgusuyla değiştirilecektir.
+// Gün 17'de Keşfet/Etkinlik Detay ekranları services/etkinlikler.ts'teki
+// gerçek Supabase sorgularına geçti. mockEtkinlikler hâlâ TakvimScreen.tsx
+// tarafından kullanılıyor - takvimin gerçek veriye bağlanması Gün 36'da.
+// mockKullanicilar şu an hiçbir yerde kullanılmıyor.
 
 import { Etkinlik, Kullanici } from '../types';
 

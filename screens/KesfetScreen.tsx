@@ -1,94 +1,84 @@
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { useCallback, useEffect, useState } from 'react';
-import { FlatList, Pressable, RefreshControl, StyleSheet, Text, View } from 'react-native';
+import { useFocusEffect } from '@react-navigation/native';
+import { useCallback, useState } from 'react';
+import { ActivityIndicator, FlatList, RefreshControl, StyleSheet, View } from 'react-native';
 
 import BosDurum from '../components/BosDurum';
 import EtkinlikKarti from '../components/EtkinlikKarti';
 import HataDurumu from '../components/HataDurumu';
 import YuklemeDurumu from '../components/YuklemeDurumu';
-import { colors, radius, spacing, typography } from '../constants/theme';
-import { mockEtkinlikler } from '../services/mockData';
+import { colors, spacing } from '../constants/theme';
+import { etkinlikleriGetir } from '../services/etkinlikler';
 import { Etkinlik } from '../types';
 import type { KesfetStackParamList } from '../types/navigation';
 
-// Supabase 'select' sorgusunu taklit eder (Gün 17'de gerçek sorguyla değişecek).
-// simulateBos/simulateHata, boş liste ve hata durumlarını __DEV__ panelinden
-// tetikleyip test edebilmek için var; gerçek backend geldiğinde kaldırılacak.
-function mockEtkinlikleriGetir(opts: {
-  simulateBos: boolean;
-  simulateHata: boolean;
-}): Promise<Etkinlik[]> {
-  return new Promise((resolve, reject) => {
-    setTimeout(() => {
-      if (opts.simulateHata) {
-        reject(new Error('Etkinlikler yüklenemedi.'));
-        return;
-      }
-      resolve(opts.simulateBos ? [] : mockEtkinlikler);
-    }, 700);
-  });
-}
-
-type TestModu = 'normal' | 'bos' | 'hata';
 type Durum = 'yukleniyor' | 'hata' | 'hazir';
-
-const TEST_MODU_ETIKETLERI: Record<TestModu, string> = {
-  normal: 'Normal',
-  bos: 'Boş',
-  hata: 'Hata',
-};
 
 type Props = NativeStackScreenProps<KesfetStackParamList, 'KesfetListesi'>;
 
 export default function KesfetScreen({ navigation }: Props) {
-  const [testModu, setTestModu] = useState<TestModu>('normal');
   const [durum, setDurum] = useState<Durum>('yukleniyor');
   const [etkinlikler, setEtkinlikler] = useState<Etkinlik[]>([]);
+  const [sayfa, setSayfa] = useState(0);
+  const [sonSayfaMi, setSonSayfaMi] = useState(false);
   const [yenileniyor, setYenileniyor] = useState(false);
+  const [sonrakiYukleniyor, setSonrakiYukleniyor] = useState(false);
 
-  const veriGetir = useCallback(async (mod: TestModu) => {
+  // sessizce=true iken (odak/pull-to-refresh) ekrandaki liste anlık
+  // boşaltılmıyor, sadece RefreshControl spinner'ı dönüyor - aksi halde her
+  // sekme değişiminde liste bir anlığına kaybolup YuklemeDurumu görünürdü.
+  const ilkSayfayiYukle = useCallback(async (sessizce: boolean) => {
+    if (sessizce) {
+      setYenileniyor(true);
+    } else {
+      setDurum('yukleniyor');
+    }
+
     try {
-      const veri = await mockEtkinlikleriGetir({
-        simulateBos: mod === 'bos',
-        simulateHata: mod === 'hata',
-      });
-      setEtkinlikler(veri);
+      const sonuc = await etkinlikleriGetir(0);
+      setEtkinlikler(sonuc.etkinlikler);
+      setSonSayfaMi(sonuc.sonSayfaMi);
+      setSayfa(1);
       setDurum('hazir');
     } catch {
       setDurum('hata');
+    } finally {
+      setYenileniyor(false);
     }
   }, []);
 
-  useEffect(() => {
-    setDurum('yukleniyor');
-    veriGetir(testModu);
-  }, [testModu, veriGetir]);
+  // Etkinlik Oluştur'dan (Gün 17) yayınlanan yeni bir etkinliğin, ya da
+  // ileride düzenleme/iptal (Gün 18-19) sonrası değişikliklerin bu listede
+  // görünmesi için sekme her focus aldığında ilk sayfa yeniden çekiliyor;
+  // etkinlikler.length > 0 ise (yani bu ilk ziyaret değilse) sessizce yapılıyor.
+  useFocusEffect(
+    useCallback(() => {
+      ilkSayfayiYukle(etkinlikler.length > 0);
+    }, [ilkSayfayiYukle, etkinlikler.length]),
+  );
 
-  const yenile = useCallback(async () => {
-    setYenileniyor(true);
-    await veriGetir(testModu);
-    setYenileniyor(false);
-  }, [testModu, veriGetir]);
+  const sonrakiSayfayiYukle = useCallback(async () => {
+    if (sonSayfaMi || sonrakiYukleniyor || durum !== 'hazir') return;
+
+    setSonrakiYukleniyor(true);
+    try {
+      const sonuc = await etkinlikleriGetir(sayfa);
+      setEtkinlikler((onceki) => [...onceki, ...sonuc.etkinlikler]);
+      setSonSayfaMi(sonuc.sonSayfaMi);
+      setSayfa((s) => s + 1);
+    } catch {
+      // Sayfalama hatası tüm listeyi HataDurumu'na çevirmiyor - kullanıcı
+      // FlatList'i tekrar sona kaydırınca (sonrakiYukleniyor false'a döndüğü
+      // için) otomatik olarak yeniden denenmiş olur.
+    } finally {
+      setSonrakiYukleniyor(false);
+    }
+  }, [sayfa, sonSayfaMi, sonrakiYukleniyor, durum]);
 
   return (
     <View style={styles.container}>
-      {__DEV__ && (
-        <View style={styles.devPanel}>
-          {(Object.keys(TEST_MODU_ETIKETLERI) as TestModu[]).map((mod) => (
-            <Pressable
-              key={mod}
-              onPress={() => setTestModu(mod)}
-              style={[styles.devButon, testModu === mod && styles.devButonAktif]}
-            >
-              <Text style={[styles.devButonMetin, testModu === mod && styles.devButonMetinAktif]}>
-                {TEST_MODU_ETIKETLERI[mod]}
-              </Text>
-            </Pressable>
-          ))}
-        </View>
-      )}
       {durum === 'yukleniyor' && <YuklemeDurumu mesaj="Etkinlikler yükleniyor..." />}
-      {durum === 'hata' && <HataDurumu onTekrarDene={() => veriGetir(testModu)} />}
+      {durum === 'hata' && <HataDurumu onTekrarDene={() => ilkSayfayiYukle(false)} />}
       {durum === 'hazir' && (
         <FlatList
           data={etkinlikler}
@@ -101,10 +91,17 @@ export default function KesfetScreen({ navigation }: Props) {
           )}
           contentContainerStyle={styles.listeIcerik}
           ListEmptyComponent={<BosDurum />}
+          onEndReached={sonrakiSayfayiYukle}
+          onEndReachedThreshold={0.5}
+          ListFooterComponent={
+            sonrakiYukleniyor ? (
+              <ActivityIndicator style={styles.altYukleniyor} color={colors.primary} />
+            ) : null
+          }
           refreshControl={
             <RefreshControl
               refreshing={yenileniyor}
-              onRefresh={yenile}
+              onRefresh={() => ilkSayfayiYukle(true)}
               tintColor={colors.primary}
               colors={[colors.primary]}
             />
@@ -124,30 +121,7 @@ const styles = StyleSheet.create({
     padding: spacing.md,
     flexGrow: 1,
   },
-  devPanel: {
-    flexDirection: 'row',
-    gap: spacing.xs,
-    padding: spacing.sm,
-    backgroundColor: colors.surface,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
-  },
-  devButon: {
-    paddingHorizontal: spacing.sm,
-    paddingVertical: 4,
-    borderRadius: radius.full,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  devButonAktif: {
-    backgroundColor: colors.primary,
-    borderColor: colors.primary,
-  },
-  devButonMetin: {
-    fontSize: typography.fontSize.xs,
-    color: colors.textSecondary,
-  },
-  devButonMetinAktif: {
-    color: colors.white,
+  altYukleniyor: {
+    marginVertical: spacing.md,
   },
 });

@@ -1,13 +1,27 @@
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
-import { useState } from 'react';
-import { Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useCallback, useEffect, useState } from 'react';
+import {
+  ActivityIndicator,
+  Alert,
+  Image,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { formatTarihSaat } from '../components/EtkinlikKarti';
+import HataDurumu from '../components/HataDurumu';
 import KategoriEtiket from '../components/KategoriEtiket';
+import YuklemeDurumu from '../components/YuklemeDurumu';
 import { colors, radius, spacing, typography } from '../constants/theme';
-import { mockEtkinlikler } from '../services/mockData';
+import { useAuth } from '../context/AuthContext';
+import { etkinlikGetir } from '../services/etkinlikler';
+import { supabase } from '../services/supabase';
+import { Etkinlik } from '../types';
 import type { KesfetStackParamList } from '../types/navigation';
 
 const AVATAR_RENKLERI = [
@@ -19,13 +33,44 @@ const AVATAR_RENKLERI = [
 ];
 const GOSTERILECEK_AVATAR_SAYISI = 5;
 
+type Durum = 'yukleniyor' | 'hata' | 'hazir';
+
 type Props = NativeStackScreenProps<KesfetStackParamList, 'EtkinlikDetay'>;
 
-export default function EtkinlikDetayScreen({ route }: Props) {
+export default function EtkinlikDetayScreen({ route, navigation }: Props) {
   const insets = useSafeAreaInsets();
+  const { session } = useAuth();
   const [katildim, setKatildim] = useState(false);
-  const etkinlik = mockEtkinlikler.find((e) => e.id === route.params.etkinlikId);
+  const [etkinlik, setEtkinlik] = useState<Etkinlik | null>(null);
+  const [durum, setDurum] = useState<Durum>('yukleniyor');
+  const [siliniyor, setSiliniyor] = useState(false);
 
+  const etkinligiGetir = useCallback(async () => {
+    setDurum('yukleniyor');
+    try {
+      const sonuc = await etkinlikGetir(route.params.etkinlikId);
+      setEtkinlik(sonuc);
+      setDurum('hazir');
+    } catch {
+      setDurum('hata');
+    }
+  }, [route.params.etkinlikId]);
+
+  useEffect(() => {
+    etkinligiGetir();
+  }, [etkinligiGetir]);
+
+  if (durum === 'yukleniyor') {
+    return <YuklemeDurumu mesaj="Etkinlik yükleniyor..." />;
+  }
+
+  if (durum === 'hata') {
+    return <HataDurumu onTekrarDene={etkinligiGetir} />;
+  }
+
+  // durum 'hazir' ama etkinlik null: sorgu başarılı çalıştı, satır bulunamadı
+  // (örn. silinmiş bir etkinliğin linkiyle gelinmesi) - bu ağ hatasından
+  // (durum 'hata') ayrı bir durum, "Tekrar Dene" burada anlamsız olurdu.
   if (!etkinlik) {
     return (
       <View style={styles.bulunamadi}>
@@ -37,6 +82,47 @@ export default function EtkinlikDetayScreen({ route }: Props) {
 
   const gosterilecekAvatarSayisi = Math.min(GOSTERILECEK_AVATAR_SAYISI, etkinlik.katilimciSayisi);
   const kalanKatilimci = etkinlik.katilimciSayisi - gosterilecekAvatarSayisi;
+  const organizatorMu = session?.user.id === etkinlik.organizatorId;
+
+  // RLS zaten sadece organizatörün delete'ine izin veriyor (Gün 14); bu
+  // kontrol sadece butonu gizlemek için - ikinci bir savunma katmanı değil,
+  // asıl güvenlik sunucu tarafında. Kapak fotoğrafının storage'dan silinmesi
+  // bilinçli olarak kapsam dışı - EtkinlikOlusturScreen.tsx'teki "Kaldır"
+  // yorumunda bahsedilen orphan-dosya temizliğiyle aynı kategori, ileride
+  // (Gün 35 gibi) toplu bir işle ele alınabilir.
+  const etkinligiSil = () => {
+    Alert.alert('Emin misin?', 'Bu etkinlik kalıcı olarak silinecek.', [
+      { text: 'İptal', style: 'cancel' },
+      {
+        text: 'Sil',
+        style: 'destructive',
+        onPress: async () => {
+          setSiliniyor(true);
+          try {
+            const { error } = await supabase.from('etkinlikler').delete().eq('id', etkinlik.id);
+
+            if (error) {
+              Alert.alert('Silinemedi', error.message);
+              return;
+            }
+
+            // Keşfet listesine dönüyoruz; KesfetScreen.tsx zaten her focus'ta
+            // ilk sayfayı sessizce yeniden çekiyor (Gün 17), bu yüzden silinen
+            // etkinlik listeden kendiliğinden düşer.
+            navigation.goBack();
+          } catch (err) {
+            // try/catch olmadan (örn. ağ hatasında) delete() reject olursa
+            // setSiliniyor(false) hiç çalışmaz, buton sonsuza dek "yükleniyor"
+            // görünür ve kullanıcı hiçbir hata görmeden ekranda kalırdı - bkz.
+            // ProfilScreen.tsx'teki avatarSec'te Gün 12'de düzeltilen aynı hata.
+            Alert.alert('Bir hata oluştu', err instanceof Error ? err.message : String(err));
+          } finally {
+            setSiliniyor(false);
+          }
+        },
+      },
+    ]);
+  };
 
   return (
     <View style={styles.container}>
@@ -102,6 +188,19 @@ export default function EtkinlikDetayScreen({ route }: Props) {
             {katildim ? 'Katıldın ✓' : 'Katıl'}
           </Text>
         </Pressable>
+        {organizatorMu && (
+          <Pressable
+            style={[styles.silButon, siliniyor && styles.silButonPasif]}
+            onPress={etkinligiSil}
+            disabled={siliniyor}
+          >
+            {siliniyor ? (
+              <ActivityIndicator color={colors.error} />
+            ) : (
+              <Text style={styles.silButonMetin}>Etkinliği Sil</Text>
+            )}
+          </Pressable>
+        )}
       </View>
     </View>
   );
@@ -203,6 +302,22 @@ const styles = StyleSheet.create({
   },
   katilButonMetinAktif: {
     color: colors.white,
+  },
+  silButon: {
+    marginTop: spacing.sm,
+    borderWidth: 1,
+    borderColor: colors.error,
+    borderRadius: radius.md,
+    paddingVertical: spacing.sm,
+    alignItems: 'center',
+  },
+  silButonPasif: {
+    opacity: 0.6,
+  },
+  silButonMetin: {
+    color: colors.error,
+    fontWeight: typography.fontWeight.bold,
+    fontSize: typography.fontSize.md,
   },
   bulunamadi: {
     flex: 1,

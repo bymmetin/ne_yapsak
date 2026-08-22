@@ -6,7 +6,6 @@ import { ActivityIndicator, Alert, Image, Pressable, StyleSheet, Text, View } fr
 
 import { colors, radius, spacing, typography } from '../constants/theme';
 import { useAuth } from '../context/AuthContext';
-import { mockEtkinlikler } from '../services/mockData';
 import { supabase } from '../services/supabase';
 
 type Profil = {
@@ -32,6 +31,7 @@ export default function ProfilScreen() {
   const [yukleniyor, setYukleniyor] = useState(true);
   const [avatarYukleniyor, setAvatarYukleniyor] = useState(false);
   const [cikisYapiliyor, setCikisYapiliyor] = useState(false);
+  const [duzenledigiEtkinlikSayisi, setDuzenledigiEtkinlikSayisi] = useState(0);
 
   const profiliGetir = useCallback(async (id: string) => {
     const { data, error } = await supabase
@@ -56,11 +56,30 @@ export default function ProfilScreen() {
     });
   }, []);
 
+  // etkinlikler artık gerçek bir tablo (Gün 17); head: true ile satırların
+  // kendisini çekmeden sadece sayısını istiyoruz (count'un tek amacı bu
+  // sayaç olduğu için satır verisini indirmek gereksiz).
+  const etkinlikSayisiniGetir = useCallback(async (id: string) => {
+    const { count, error } = await supabase
+      .from('etkinlikler')
+      .select('id', { count: 'exact', head: true })
+      .eq('organizator_id', id);
+
+    if (error) {
+      console.log('[Profil] etkinlik sayısı çekme HATA:', error.message);
+      return;
+    }
+
+    setDuzenledigiEtkinlikSayisi(count ?? 0);
+  }, []);
+
   useEffect(() => {
     if (!kullaniciId) return;
     setYukleniyor(true);
-    profiliGetir(kullaniciId).finally(() => setYukleniyor(false));
-  }, [kullaniciId, profiliGetir]);
+    Promise.all([profiliGetir(kullaniciId), etkinlikSayisiniGetir(kullaniciId)]).finally(() =>
+      setYukleniyor(false),
+    );
+  }, [kullaniciId, profiliGetir, etkinlikSayisiniGetir]);
 
   // Başarılı signOut sonrası ayrıca bir şey yapmaya gerek yok: AuthContext'in
   // onAuthStateChange aboneliği session'ı null yapıp App.tsx'teki kökü
@@ -168,12 +187,6 @@ export default function ProfilScreen() {
     );
   }
 
-  // etkinlikler tablosu henüz mock (Gün 17'de gerçek veriyle bağlanacak), bu
-  // yüzden gerçek kullanıcının uuid'siyle eşleşen mock kayıt yok - sayaç 0
-  // görünmesi beklenen, geçici bir durum.
-  const duzenledigiEtkinlikSayisi = mockEtkinlikler.filter(
-    (etkinlik) => etkinlik.organizatorId === kullaniciId,
-  ).length;
   // katilimlar tablosu henüz yok (Gün 21), bu yüzden şimdilik sabit.
   const katildigiEtkinlikSayisi = 0;
 

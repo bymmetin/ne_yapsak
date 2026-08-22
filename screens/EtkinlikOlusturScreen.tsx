@@ -1,5 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { zodResolver } from '@hookform/resolvers/zod';
+import type { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
 import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import { useFocusEffect } from '@react-navigation/native';
 import { decode } from 'base64-arraybuffer';
@@ -24,10 +25,18 @@ import { z } from 'zod';
 import { KATEGORI_ETIKETLERI } from '../components/KategoriEtiket';
 import { colors, radius, spacing, typography } from '../constants/theme';
 import { useAuth } from '../context/AuthContext';
+import type { TabParamList } from '../navigation/TabNavigator';
 import { supabase } from '../services/supabase';
 import { Kategori } from '../types';
 
 const KAPAK_BUCKET = 'etkinlik-kapaklari';
+
+// Haritadan gerçek konum seçimi Gün 23'ün kapsamı (expo-location + harita).
+// O güne kadar konum_lat/konum_lng NOT NULL kısıtını karşılamak için sabit
+// bir merkez nokta (İstanbul/Taksim) kullanılıyor; kullanıcı sadece adresi
+// serbest metin olarak giriyor. Gün 23'te bu sabitin yerini gerçek
+// koordinatlar alacak.
+const VARSAYILAN_KONUM = { lat: 41.0082, lng: 28.9784 };
 
 // KATEGORI_ETIKETLERI tek doğruluk kaynağı; z.enum burada yeniden bir kategori
 // listesi yazmak yerine onun anahtarlarını kullanıyor ki iki liste birbirinden
@@ -55,12 +64,25 @@ const formSemasi = z.object({
     .max(1000, 'Açıklama en fazla 1000 karakter olabilir.')
     .regex(METIN_DESENI, METIN_DESENI_MESAJI),
   kategori: z.enum(KATEGORI_SECENEKLERI, { message: 'Bir kategori seç.' }),
-  // .min(new Date()) şema tanımlandığı anki sabit bir Date alır; ekran açık
-  // kalıp geç gönderilirse yanlış pozitif verir. refine ile her doğrulamada
-  // Date.now() taze okunuyor.
-  tarihSaat: z.date().refine((deger) => deger.getTime() > Date.now(), {
-    message: 'Etkinlik tarihi/saati geçmişte olamaz.',
-  }),
+  // Test kolaylığı için geçmiş tarih/saat kısıtı kasıtlı olarak kaldırıldı -
+  // hem burada hem picker'ın minimumDate'inde (aşağıda). Gerçek kullanıcı
+  // akışında bu muhtemelen geri istenecek bir kural.
+  tarihSaat: z.date(),
+  konumAdres: z
+    .string()
+    .trim()
+    .min(5, 'Adres en az 5 karakter olmalı.')
+    .max(200, 'Adres en fazla 200 karakter olabilir.'),
+  // z.coerce.number() yerine düz string + regex/refine tercih edildi: TextInput
+  // her zaman string üretir, coerce kullanmak defaultValues/Controller
+  // tiplerini (input vs. output) ayırmayı gerektirirdi. Number dönüşümü
+  // sadece insert'e geçerken (yayinla içinde) yapılıyor.
+  kapasite: z
+    .string()
+    .trim()
+    .regex(/^[0-9]+$/, 'Kapasite sadece rakamlardan oluşmalı.')
+    .refine((deger) => Number(deger) >= 1, 'Kapasite en az 1 olmalı.')
+    .refine((deger) => Number(deger) <= 100000, 'Kapasite en fazla 100000 olabilir.'),
 });
 
 type FormVerisi = z.infer<typeof formSemasi>;
@@ -82,9 +104,28 @@ function formatSaat(deger: Date): string {
   return deger.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' });
 }
 
+// toISOString() kullanmadık: UTC'ye çevirir, Türkiye UTC+3 olduğu için örneğin
+// 23:30'daki bir etkinlik ISO string'de ertesi güne kayar. Burada yerel
+// tarih/saat bileşenlerini elle okuyup DB'nin date/time kolonlarına
+// (tarih/saat, schema.sql) birebir eşliyoruz.
+function tarihDbFormati(deger: Date): string {
+  const yil = deger.getFullYear();
+  const ay = String(deger.getMonth() + 1).padStart(2, '0');
+  const gun = String(deger.getDate()).padStart(2, '0');
+  return `${yil}-${ay}-${gun}`;
+}
+
+function saatDbFormati(deger: Date): string {
+  const saat = String(deger.getHours()).padStart(2, '0');
+  const dakika = String(deger.getMinutes()).padStart(2, '0');
+  return `${saat}:${dakika}:00`;
+}
+
 type PickerModu = 'date' | 'time' | null;
 
-export default function EtkinlikOlusturScreen() {
+type Props = BottomTabScreenProps<TabParamList, 'EtkinlikOlustur'>;
+
+export default function EtkinlikOlusturScreen({ navigation }: Props) {
   const { session } = useAuth();
   const organizatorId = session?.user.id ?? null;
 
@@ -92,6 +133,7 @@ export default function EtkinlikOlusturScreen() {
   const [kapakFotoUrl, setKapakFotoUrl] = useState<string | null>(null);
   const [kapakDosyaYolu, setKapakDosyaYolu] = useState<string | null>(null);
   const [kapakYukleniyor, setKapakYukleniyor] = useState(false);
+  const [yayinlaniyor, setYayinlaniyor] = useState(false);
 
   const {
     control,
@@ -105,6 +147,8 @@ export default function EtkinlikOlusturScreen() {
       aciklama: '',
       kategori: KATEGORI_SECENEKLERI[0],
       tarihSaat: varsayilanTarihSaat(),
+      konumAdres: '',
+      kapasite: '',
     },
   });
 
@@ -120,6 +164,8 @@ export default function EtkinlikOlusturScreen() {
         aciklama: '',
         kategori: KATEGORI_SECENEKLERI[0],
         tarihSaat: varsayilanTarihSaat(),
+        konumAdres: '',
+        kapasite: '',
       });
       setAcikPicker(null);
       // NOT: sekme değiştirip formdan bu şekilde vazgeçmek, storage'a zaten
@@ -215,15 +261,40 @@ export default function EtkinlikOlusturScreen() {
     }
   };
 
-  // Gün 17'de bu veriyi supabase.from('etkinlikler').insert(...)'e bağlayıp
-  // Keşfet ekranındaki mock veriyi gerçek sorguyla değiştireceğiz. Şimdilik
-  // adım 1'in (alanlar + validasyon + kapak fotoğrafı) çalıştığını görünür
-  // kılmak için özet gösteriliyor.
-  const ileriGit = (veri: FormVerisi) => {
-    Alert.alert(
-      'Adım 1 tamam',
-      `${veri.baslik}\n${KATEGORI_ETIKETLERI[veri.kategori]}\n${formatTarih(veri.tarihSaat)} ${formatSaat(veri.tarihSaat)}\nKapak fotoğrafı: ${kapakFotoUrl ? 'Var' : 'Yok'}`,
-    );
+  // organizatör_id RLS politikasınca (Gün 14) zaten auth.uid()'e eşit olmak
+  // zorunda; burada da açıkça geçiyoruz ki tip güvenli olsun ve organizatorId
+  // null ise (session kaybı gibi bir kenar durum) insert'i hiç denemeyelim.
+  const yayinla = async (veri: FormVerisi) => {
+    if (!organizatorId) return;
+
+    setYayinlaniyor(true);
+
+    const { error } = await supabase.from('etkinlikler').insert({
+      organizator_id: organizatorId,
+      baslik: veri.baslik,
+      aciklama: veri.aciklama,
+      kategori: veri.kategori,
+      tarih: tarihDbFormati(veri.tarihSaat),
+      saat: saatDbFormati(veri.tarihSaat),
+      konum_adres: veri.konumAdres,
+      konum_lat: VARSAYILAN_KONUM.lat,
+      konum_lng: VARSAYILAN_KONUM.lng,
+      kapasite: Number(veri.kapasite),
+      kapak_foto_url: kapakFotoUrl,
+    });
+
+    setYayinlaniyor(false);
+
+    if (error) {
+      Alert.alert('Etkinlik yayınlanamadı', error.message);
+      return;
+    }
+
+    Alert.alert('Yayınlandı', 'Etkinliğin Keşfet ekranında görünecek.');
+    // KesfetScreen.tsx bu sekmeye her focus'ta ilk sayfayı sessizce yeniden
+    // çekiyor (Gün 17), bu yüzden burada listeye elle eklemeye gerek yok -
+    // sekmeyi değiştirmek yeterli.
+    navigation.navigate('Kesfet');
   };
 
   return (
@@ -233,7 +304,6 @@ export default function EtkinlikOlusturScreen() {
     >
       <ScrollView contentContainerStyle={styles.icerik} keyboardShouldPersistTaps="handled">
         <Text style={styles.baslik}>Etkinlik Oluştur</Text>
-        <Text style={styles.altBaslik}>Adım 1 / 3 — Temel Bilgiler</Text>
 
         <View style={styles.alanContainer}>
           <Text style={styles.alanEtiket}>Kapak Fotoğrafı (opsiyonel)</Text>
@@ -360,7 +430,6 @@ export default function EtkinlikOlusturScreen() {
                     mode={acikPicker}
                     is24Hour
                     display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-                    minimumDate={acikPicker === 'date' ? new Date() : undefined}
                     onChange={(event: DateTimePickerEvent, secilenDeger?: Date) => {
                       // Android'de picker bir dialog; her seçimden sonra (veya
                       // iptalde) kendiliğinden kapanır, biz de state'i kapatıp
@@ -398,8 +467,55 @@ export default function EtkinlikOlusturScreen() {
           {errors.tarihSaat && <Text style={styles.alanHata}>{errors.tarihSaat.message}</Text>}
         </View>
 
-        <Pressable style={styles.buton} onPress={handleSubmit(ileriGit)}>
-          <Text style={styles.butonMetin}>İleri</Text>
+        <View style={styles.alanContainer}>
+          <Text style={styles.alanEtiket}>Konum Adresi</Text>
+          <Controller
+            control={control}
+            name="konumAdres"
+            render={({ field: { value, onChange, onBlur } }) => (
+              <TextInput
+                style={[styles.girdi, errors.konumAdres && styles.girdiHatali]}
+                value={value}
+                onChangeText={onChange}
+                onBlur={onBlur}
+                placeholder="Örn. Beşiktaş, İstanbul"
+                placeholderTextColor={colors.textSecondary}
+              />
+            )}
+          />
+          {errors.konumAdres && <Text style={styles.alanHata}>{errors.konumAdres.message}</Text>}
+        </View>
+
+        <View style={styles.alanContainer}>
+          <Text style={styles.alanEtiket}>Kapasite</Text>
+          <Controller
+            control={control}
+            name="kapasite"
+            render={({ field: { value, onChange, onBlur } }) => (
+              <TextInput
+                style={[styles.girdi, errors.kapasite && styles.girdiHatali]}
+                value={value}
+                onChangeText={onChange}
+                onBlur={onBlur}
+                placeholder="Örn. 30"
+                placeholderTextColor={colors.textSecondary}
+                keyboardType="number-pad"
+              />
+            )}
+          />
+          {errors.kapasite && <Text style={styles.alanHata}>{errors.kapasite.message}</Text>}
+        </View>
+
+        <Pressable
+          style={[styles.buton, yayinlaniyor && styles.butonPasif]}
+          onPress={handleSubmit(yayinla)}
+          disabled={yayinlaniyor}
+        >
+          {yayinlaniyor ? (
+            <ActivityIndicator color={colors.white} />
+          ) : (
+            <Text style={styles.butonMetin}>Yayınla</Text>
+          )}
         </Pressable>
       </ScrollView>
     </KeyboardAvoidingView>
@@ -418,10 +534,6 @@ const styles = StyleSheet.create({
     fontSize: typography.fontSize.xxl,
     fontWeight: typography.fontWeight.bold,
     color: colors.text,
-  },
-  altBaslik: {
-    fontSize: typography.fontSize.sm,
-    color: colors.textSecondary,
     marginBottom: spacing.lg,
   },
   alanContainer: {
@@ -544,6 +656,9 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.md,
     alignItems: 'center',
     marginTop: spacing.sm,
+  },
+  butonPasif: {
+    opacity: 0.6,
   },
   butonMetin: {
     color: colors.white,
