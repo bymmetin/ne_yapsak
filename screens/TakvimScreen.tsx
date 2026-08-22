@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { FlatList, StyleSheet, Text, View } from 'react-native';
 import { Calendar, DateData } from 'react-native-calendars';
 
@@ -35,6 +35,28 @@ function formatUzunTarih(tarihStr: string): string {
   return `${gun} ${AYLAR_UZUN[ay - 1]} ${yil}`;
 }
 
+// Takvim ilk açıldığında hangi ayın gösterileceğini belirler; modül yüklendiğinde
+// bir kez hesaplanır. Bunu her render'da yeniden hesaplamak (veya doğrudan
+// secilenTarih state'ine bağlamak) react-native-calendars'ın her gün
+// dokunuşunda ay görünümünü sıfırlamasına ve gereksiz yeniden render'lara
+// yol açıyordu; sabit bir başlangıç değeri kullanmak bunu ortadan kaldırır.
+const BUGUN = bugununTarihi();
+
+// Component dışında sabit: her render'da yeni bir obje oluşmasını önler.
+// (react-native-calendars'ın Day bileşeni React.memo ile sarılı; theme
+// objesinin her render'da yeni referans alması tüm günlerin gereksiz yere
+// yeniden render olmasına, dolayısıyla dokunmaların bazı cihazlarda es
+// geçilmesine yol açabiliyordu.)
+const TAKVIM_TEMASI = {
+  todayTextColor: colors.primary,
+  arrowColor: colors.primary,
+  selectedDayBackgroundColor: colors.primary,
+  selectedDayTextColor: colors.white,
+  dotColor: colors.primary,
+  textDayFontSize: typography.fontSize.sm,
+  textMonthFontWeight: typography.fontWeight.bold,
+};
+
 type GunIsareti = {
   marked?: boolean;
   dotColor?: string;
@@ -44,7 +66,7 @@ type GunIsareti = {
 };
 
 export default function TakvimScreen() {
-  const [secilenTarih, setSecilenTarih] = useState(bugununTarihi());
+  const [secilenTarih, setSecilenTarih] = useState(BUGUN);
 
   const isaretliGunler = useMemo(() => {
     const gunler: Record<string, GunIsareti> = {};
@@ -65,21 +87,17 @@ export default function TakvimScreen() {
     [secilenTarih],
   );
 
+  const gunSecildi = useCallback((gun: DateData) => {
+    setSecilenTarih(gun.dateString);
+  }, []);
+
   return (
     <View style={styles.container}>
       <Calendar
-        current={secilenTarih}
+        initialDate={BUGUN}
         markedDates={isaretliGunler}
-        onDayPress={(gun: DateData) => setSecilenTarih(gun.dateString)}
-        theme={{
-          todayTextColor: colors.primary,
-          arrowColor: colors.primary,
-          selectedDayBackgroundColor: colors.primary,
-          selectedDayTextColor: colors.white,
-          dotColor: colors.primary,
-          textDayFontSize: typography.fontSize.sm,
-          textMonthFontWeight: typography.fontWeight.bold,
-        }}
+        onDayPress={gunSecildi}
+        theme={TAKVIM_TEMASI}
         style={styles.takvim}
       />
       <FlatList

@@ -3,6 +3,7 @@ import * as Linking from 'expo-linking';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect } from 'react';
 import { ActivityIndicator, StyleSheet, View } from 'react-native';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { colors } from './constants/theme';
@@ -73,18 +74,23 @@ export default function App() {
   }, []);
 
   return (
-    <AuthProvider>
-      <SafeAreaProvider>
-        <NavigationContainer>
-          <KokNavigasyon />
-        </NavigationContainer>
-        <StatusBar style="auto" />
-      </SafeAreaProvider>
-    </AuthProvider>
+    <GestureHandlerRootView style={styles.kok}>
+      <AuthProvider>
+        <SafeAreaProvider>
+          <NavigationContainer>
+            <KokNavigasyon />
+          </NavigationContainer>
+          <StatusBar style="auto" />
+        </SafeAreaProvider>
+      </AuthProvider>
+    </GestureHandlerRootView>
   );
 }
 
 const styles = StyleSheet.create({
+  kok: {
+    flex: 1,
+  },
   yukleniyor: {
     flex: 1,
     alignItems: 'center',
