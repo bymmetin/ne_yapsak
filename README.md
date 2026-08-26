@@ -39,8 +39,8 @@ Etkinlik keşfetme, oluşturma ve katılım uygulaması. React Native + Expo + T
 ## Kurulum
 
 ```bash
-git clone https://github.com/KULLANICI_ADI/REPO_ADI.git
-cd REPO_ADI
+git clone https://github.com/bymmetin/ne_yapsak.git
+cd ne_yapsak
 npm install
 cp .env.example .env
 ```
