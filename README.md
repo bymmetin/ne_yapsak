@@ -48,8 +48,8 @@ cp .env.example .env
 `.env` dosyasını kendi Supabase proje bilgilerinle doldur:
 
 ```
-EXPO_PUBLIC_SUPABASE_URL=...
-EXPO_PUBLIC_SUPABASE_ANON_KEY=...
+NEXT_PUBLIC_SUPABASE_URL=https://lhjgqlarubdcmlrpmjdc.supabase.co
+NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=sb_publishable_N8w0OfKLS5NVsw-Xd0QKng_ALgoWvMc
 ```
 
 Uygulamayı başlat:
