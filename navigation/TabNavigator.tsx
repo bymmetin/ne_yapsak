@@ -1,12 +1,13 @@
 import { Ionicons } from '@expo/vector-icons';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 
-import { colors, typography } from '../constants/theme';
-import KesfetStack from './KesfetStack';
-import BildirimlerScreen from '../screens/BildirimlerScreen';
-import EtkinlikOlusturScreen from '../screens/EtkinlikOlusturScreen';
-import ProfilScreen from '../screens/ProfilScreen';
-import TakvimScreen from '../screens/TakvimScreen';
+import { typography } from '../constants/theme';
+import { useTheme } from '../context/ThemeContext';
+import DiscoverStack from './DiscoverStack';
+import ProfileStack from './ProfileStack';
+import NotificationsScreen from '../screens/NotificationsScreen';
+import EventCreateScreen from '../screens/EventCreateScreen';
+import CalendarScreen from '../screens/CalendarScreen';
 import type { RouteName } from '../types/navigation';
 
 export type TabParamList = Record<RouteName, undefined>;
@@ -14,16 +15,18 @@ export type TabParamList = Record<RouteName, undefined>;
 type IconName = keyof typeof Ionicons.glyphMap;
 
 const TAB_ICONS: Record<RouteName, { active: IconName; inactive: IconName }> = {
-  Kesfet: { active: 'compass', inactive: 'compass-outline' },
-  Takvim: { active: 'calendar', inactive: 'calendar-outline' },
-  EtkinlikOlustur: { active: 'add-circle', inactive: 'add-circle-outline' },
-  Bildirimler: { active: 'notifications', inactive: 'notifications-outline' },
-  Profil: { active: 'person', inactive: 'person-outline' },
+  Discover: { active: 'compass', inactive: 'compass-outline' },
+  Calendar: { active: 'calendar', inactive: 'calendar-outline' },
+  EventCreate: { active: 'add-circle', inactive: 'add-circle-outline' },
+  Notifications: { active: 'notifications', inactive: 'notifications-outline' },
+  Profile: { active: 'person', inactive: 'person-outline' },
 };
 
 const Tab = createBottomTabNavigator<TabParamList>();
 
 export default function TabNavigator() {
+  const { colors } = useTheme();
+
   return (
     <Tab.Navigator
       screenOptions={({ route }) => ({
@@ -52,22 +55,26 @@ export default function TabNavigator() {
       })}
     >
       <Tab.Screen
-        name="Kesfet"
-        component={KesfetStack}
+        name="Discover"
+        component={DiscoverStack}
         options={{ title: 'Keşfet', headerShown: false }}
       />
-      <Tab.Screen name="Takvim" component={TakvimScreen} options={{ title: 'Takvim' }} />
+      <Tab.Screen name="Calendar" component={CalendarScreen} options={{ title: 'Takvim' }} />
       <Tab.Screen
-        name="EtkinlikOlustur"
-        component={EtkinlikOlusturScreen}
+        name="EventCreate"
+        component={EventCreateScreen}
         options={{ title: 'Etkinlik Oluştur' }}
       />
       <Tab.Screen
-        name="Bildirimler"
-        component={BildirimlerScreen}
+        name="Notifications"
+        component={NotificationsScreen}
         options={{ title: 'Bildirimler' }}
       />
-      <Tab.Screen name="Profil" component={ProfilScreen} options={{ title: 'Profil' }} />
+      <Tab.Screen
+        name="Profile"
+        component={ProfileStack}
+        options={{ title: 'Profil', headerShown: false }}
+      />
     </Tab.Navigator>
   );
 }

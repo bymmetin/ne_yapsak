@@ -16,7 +16,7 @@ if (!supabaseUrl || !supabaseAnonKey) {
 // oturumu okuyacak). detectSessionInUrl kapalı çünkü React Native'de tarayıcı
 // URL'i yok, web'e özgü bu kontrol gereksiz uyarı üretiyor. flowType 'pkce':
 // e-posta doğrulama linkinden dönüşte kodu manuel olarak
-// exchangeCodeForSession'a vermemiz gerekiyor (bkz. EmailDogrulamaScreen).
+// exchangeCodeForSession'a vermemiz gerekiyor (bkz. EmailVerificationScreen).
 export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   auth: {
     storage: AsyncStorage,

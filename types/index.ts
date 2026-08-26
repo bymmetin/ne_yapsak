@@ -3,57 +3,68 @@
 // bağlanınca (Gün 17+) snake_case DB satırlarından bu camelCase tiplere
 // dönüşüm burada değil, ilgili servis fonksiyonunda yapılacak.
 
-export type Kategori = 'muzik' | 'spor' | 'sanat' | 'yemek' | 'egitim' | 'teknoloji' | 'diger';
+export type Category = 'muzik' | 'spor' | 'sanat' | 'yemek' | 'egitim' | 'teknoloji' | 'diger';
 
-export interface Kullanici {
+export interface User {
   id: string;
-  ad: string;
-  soyad: string;
-  kullaniciAdi: string;
+  firstName: string;
+  lastName: string;
+  username: string;
   email: string;
   avatarUrl: string | null;
   bio: string | null;
-  olusturulmaTarihi: string;
+  createdAt: string;
 }
 
-export interface Etkinlik {
+export interface Event {
   id: string;
-  organizatorId: string;
-  baslik: string;
-  aciklama: string;
-  kategori: Kategori;
-  tarih: string;
-  saat: string;
-  konum: {
-    adres: string;
-    enlem: number;
-    boylam: number;
+  organizerId: string;
+  title: string;
+  description: string;
+  category: Category;
+  date: string;
+  time: string;
+  location: {
+    address: string;
+    latitude: number;
+    longitude: number;
   };
-  kapasite: number;
-  katilimciSayisi: number;
-  kapakFotoUrl: string | null;
-  olusturulmaTarihi: string;
+  capacity: number;
+  participantCount: number;
+  coverPhotoUrl: string | null;
+  createdAt: string;
 }
 
-export interface Katilim {
+export interface Participation {
   id: string;
-  etkinlikId: string;
-  kullaniciId: string;
-  katilimTarihi: string;
-  durum: 'onaylandi' | 'beklemede' | 'iptal';
+  eventId: string;
+  userId: string;
+  participationDate: string;
+  status: 'onaylandi' | 'beklemede' | 'iptal';
 }
 
-export interface Yorum {
+export interface Comment {
   id: string;
-  etkinlikId: string;
-  kullaniciId: string;
-  icerik: string;
-  olusturulmaTarihi: string;
+  eventId: string;
+  userId: string;
+  content: string;
+  createdAt: string;
 }
 
-export interface Favori {
+export interface Favorite {
   id: string;
-  etkinlikId: string;
-  kullaniciId: string;
-  olusturulmaTarihi: string;
+  eventId: string;
+  userId: string;
+  createdAt: string;
+}
+
+// puanlamalar tablosu (Gün 29) - Comment (yorumlar, Gün 31-32) ile KARIŞTIRMA,
+// bkz. supabase/schema.sql > puanlamalar notu.
+export interface Rating {
+  id: string;
+  eventId: string;
+  userId: string;
+  score: number;
+  comment: string | null;
+  createdAt: string;
 }

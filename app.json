@@ -35,6 +35,13 @@
           "photosPermission": "Profil fotoğrafı seçebilmek için galerine erişim izni gerekiyor."
         }
       ],
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "Etkinlik oluştururken haritada mevcut konumunu gösterebilmek için konumuna erişim izni gerekiyor."
+        }
+      ],
+      "expo-notifications",
       "@react-native-community/datetimepicker"
     ]
   }

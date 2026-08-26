@@ -1,22 +1,8 @@
-// Renk paleti ve tipografi sabitleri — tüm ekranlar/component'lar buradan beslenir.
-// Amaç: renk/font değerlerini tek dosyada toplayıp tutarlılığı garanti etmek,
-// ileride dark mode eklerken (Gün 36) tek yerden yönetebilmek.
-
-export const colors = {
-  primary: '#6C5CE7',
-  primaryDark: '#4834D4',
-  secondary: '#00B894',
-  background: '#FFFFFF',
-  surface: '#F5F6FA',
-  text: '#2D3436',
-  textSecondary: '#636E72',
-  border: '#DFE6E9',
-  error: '#D63031',
-  warning: '#FDCB6E',
-  success: '#00B894',
-  white: '#FFFFFF',
-  black: '#000000',
-} as const;
+// Tipografi/spacing/radius sabitleri — tüm ekranlar/component'lar buradan
+// beslenir. Gün 35: renk paleti buradan context/ThemeContext.tsx'e taşındı
+// (açık/koyu tema desteği için `colors` artık statik bir sabit değil,
+// useTheme() hook'undan geliyor) - spacing/typography/radius temadan
+// bağımsız olduğu için burada, sabit kaldı.
 
 export const typography = {
   fontFamily: {

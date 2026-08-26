@@ -1,34 +1,37 @@
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 
-import { colors, typography } from '../constants/theme';
-import EmailDogrulamaScreen from '../screens/EmailDogrulamaScreen';
-import GirisScreen from '../screens/GirisScreen';
-import KayitScreen from '../screens/KayitScreen';
-import SifremiUnuttumScreen from '../screens/SifremiUnuttumScreen';
+import { typography } from '../constants/theme';
+import { useTheme } from '../context/ThemeContext';
+import EmailVerificationScreen from '../screens/EmailVerificationScreen';
+import LoginScreen from '../screens/LoginScreen';
+import RegisterScreen from '../screens/RegisterScreen';
+import ForgotPasswordScreen from '../screens/ForgotPasswordScreen';
 import type { AuthStackParamList } from '../types/navigation';
 
 const Stack = createNativeStackNavigator<AuthStackParamList>();
 
 export default function AuthStack() {
+  const { colors } = useTheme();
+
   return (
     <Stack.Navigator
-      initialRouteName="Giris"
+      initialRouteName="Login"
       screenOptions={{
         headerStyle: { backgroundColor: colors.primary },
         headerTintColor: colors.white,
         headerTitleStyle: { fontWeight: typography.fontWeight.bold },
       }}
     >
-      <Stack.Screen name="Giris" component={GirisScreen} options={{ title: 'Giriş Yap' }} />
-      <Stack.Screen name="Kayit" component={KayitScreen} options={{ title: 'Kayıt Ol' }} />
+      <Stack.Screen name="Login" component={LoginScreen} options={{ title: 'Giriş Yap' }} />
+      <Stack.Screen name="Register" component={RegisterScreen} options={{ title: 'Kayıt Ol' }} />
       <Stack.Screen
-        name="EmailDogrulama"
-        component={EmailDogrulamaScreen}
+        name="EmailVerification"
+        component={EmailVerificationScreen}
         options={{ title: 'E-posta Doğrulama', headerBackVisible: false }}
       />
       <Stack.Screen
-        name="SifremiUnuttum"
-        component={SifremiUnuttumScreen}
+        name="ForgotPassword"
+        component={ForgotPasswordScreen}
         options={{ title: 'Şifremi Unuttum' }}
       />
     </Stack.Navigator>
