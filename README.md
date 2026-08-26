@@ -2,7 +2,11 @@
 
 Etkinlik keşfetme, oluşturma ve katılım uygulaması. React Native + Expo + TypeScript + Supabase ile geliştirilmiştir.
 
+<<<<<<< HEAD
 ![CI](https://github.com/bymmetin/ne_yapsak/actions/workflows/ci.yml/badge.svg)
+=======
+![CI](https://github.com/KULLANICI_ADI/REPO_ADI/actions/workflows/ci.yml/badge.svg)
+>>>>>>> 12113be6ad753f96c3b89b2e9047e1dd79b60ca9
 
 > Bu proje, dijital oyun tasarımı bölümü zorunlu staj programı kapsamında geliştirilmiştir.
 
