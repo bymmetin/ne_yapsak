@@ -1,0 +1,34 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # Expo SDK 54 (react-native 0.81) Node 18'i artık desteklemiyor -
+      # projede engines/.nvmrc olmadığı için minimum LTS olan Node 20 seçildi.
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - run: npm ci
+
+      - run: npx tsc --noEmit
+
+      - run: npm run lint
+
+      # __tests__/*.test.ts hepsi services/supabase'i mock'luyor (bkz. o
+      # dosyalardaki jest.mock çağrıları) - gerçek bir Supabase network
+      # çağrısı yok, bu yüzden burada env değişkeni/secret gerekmiyor.
+      - run: npm test
